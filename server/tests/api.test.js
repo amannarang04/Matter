@@ -185,4 +185,54 @@ describe('Workflow API Integration Tests', () => {
     expect(firstNode.startedAt).toBeDefined();
     expect(firstNode.completedAt).toBeDefined();
   });
+
+  it('retries a run creating a new run via POST /api/runs/:id/retry', async () => {
+    const runsRes = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/runs`);
+    const runs = await runsRes.json();
+    const runId = runs[0]._id;
+
+    const res = await fetch(`${baseUrl}/api/runs/${runId}/retry`, { method: 'POST' });
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.runId).toBeDefined();
+    expect(data.runId).not.toBe(runId);
+    expect(data.status).toBe('success');
+  });
+
+  it('allows starting a run via POST /api/workflows/:id/run alias', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/run`, { method: 'POST' });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.status).toBe('success');
+  });
+
+  it('rejects workflow if missing an input node', async () => {
+    const workflowWithoutInput = {
+      name: 'No Input',
+      nodes: [
+        {
+          id: 'math-1',
+          type: 'math',
+          data: {
+            left: { source: 'literal', value: 1 },
+            op: 'add',
+            right: { source: 'literal', value: 2 },
+            outputKey: 'res',
+          },
+        },
+      ],
+      edges: [],
+    };
+
+    const res = await fetch(`${baseUrl}/api/workflows`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(workflowWithoutInput),
+    });
+
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error.code).toBe('VALIDATION_ERROR');
+    expect(data.error.details.some((d) => d.message.includes('at least one input node'))).toBe(true);
+  });
 });

@@ -121,3 +121,8 @@ export async function getRunById(runId) {
   runObj.nodeExecutions = nodeExecutions;
   return runObj;
 }
+
+export async function retryRun(runId, onEventCallback = null) {
+  const previousRun = await getRunById(runId);
+  return await executeWorkflow(previousRun.workflowId, onEventCallback);
+}

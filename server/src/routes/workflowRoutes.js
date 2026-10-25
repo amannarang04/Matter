@@ -10,6 +10,7 @@ router.put('/:id', workflowController.updateWorkflow);
 router.delete('/:id', workflowController.deleteWorkflow);
 
 router.post('/:id/execute', workflowController.executeWorkflow);
+router.post('/:id/run', workflowController.executeWorkflow);
 router.get('/:id/runs', workflowController.getWorkflowRuns);
 
 export default router;

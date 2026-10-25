@@ -139,6 +139,13 @@ export function validateWorkflowDefinition(workflow) {
     });
   }
 
+  if (nodes.length > 0 && !nodes.some((n) => n.type === 'input')) {
+    details.push({
+      field: 'nodes',
+      message: 'Workflow must contain at least one input node',
+    });
+  }
+
   const nodeMap = new Map();
   const seenOutputKeys = new Map(); // key -> nodeId
 
