@@ -1,0 +1,121 @@
+import React, { useState } from 'react';
+import { useWorkflowStore } from '../../store/workflowStore';
+import { X, Clock, Calendar } from 'lucide-react';
+
+export default function RunHistoryModal() {
+  const { isHistoryOpen, closeHistory, runsList } = useWorkflowStore();
+  const [selectedRun, setSelectedRun] = useState(null);
+
+  if (!isHistoryOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="w-full max-w-4xl h-[600px] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-indigo-400" />
+            <h2 className="text-base font-semibold">Workflow Run History</h2>
+          </div>
+          <button
+            onClick={closeHistory}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Runs Sidebar List */}
+          <div className="w-1/3 border-r border-slate-800 overflow-y-auto p-3 space-y-2 bg-slate-950/40">
+            {runsList.length === 0 ? (
+              <p className="text-slate-500 text-xs italic text-center py-8">
+                No past runs recorded for this workflow yet.
+              </p>
+            ) : (
+              runsList.map((run) => {
+                const date = new Date(run.startedAt).toLocaleString();
+                const isSelected = selectedRun?._id === run._id;
+
+                return (
+                  <button
+                    key={run._id}
+                    onClick={() => setSelectedRun(run)}
+                    className={`w-full text-left p-3 rounded-xl border transition flex flex-col gap-1.5 ${
+                      isSelected
+                        ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200'
+                        : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:bg-slate-850 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                          run.status === 'success'
+                            ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
+                            : 'bg-rose-950/80 text-rose-400 border border-rose-800/80'
+                        }`}
+                      >
+                        {run.status}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">{run.durationMs}ms</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <Calendar className="w-3 h-3 text-slate-500" />
+                      <span className="truncate">{date}</span>
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Run Details Panel */}
+          <div className="flex-1 overflow-y-auto p-6 bg-slate-900/60 space-y-6">
+            {selectedRun ? (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-300 mb-1">Execution Summary</h3>
+                  <div className="grid grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">Status</span>
+                      <p className="font-semibold text-emerald-400 mt-1 capitalize">{selectedRun.status}</p>
+                    </div>
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">Duration</span>
+                      <p className="font-semibold text-indigo-300 font-mono mt-1">{selectedRun.durationMs} ms</p>
+                    </div>
+                    <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                      <span className="text-slate-500 text-[10px] uppercase font-bold">Node Steps</span>
+                      <p className="font-semibold text-slate-200 font-mono mt-1">
+                        {selectedRun.nodeEvents?.length || 0}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-300 mb-2">Final Output</h3>
+                  <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono text-emerald-300 overflow-x-auto">
+                    {JSON.stringify(selectedRun.finalOutput || {}, null, 2)}
+                  </pre>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-300 mb-2">Run Context Snapshot</h3>
+                  <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono text-indigo-300 overflow-x-auto">
+                    {JSON.stringify(selectedRun.runContext || {}, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs">
+                <p>Select a run from the list to inspect its snapshot and outputs.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
