@@ -208,4 +208,96 @@ describe('Workflow Execution Engine & Validator', () => {
 
     expect(() => validateWorkflowDefinition(duplicateKeyWorkflow)).toThrow(ValidationError);
   });
+
+  it('fails math node gracefully on division by zero with a descriptive error', async () => {
+    const divZeroWorkflow = {
+      nodes: [
+        { id: 'n1', type: 'input', data: { values: { num: 100 } } },
+        {
+          id: 'n2',
+          type: 'math',
+          data: {
+            label: 'Divide By Zero',
+            left: { source: 'ref', key: 'num' },
+            op: 'divide',
+            right: { source: 'literal', value: 0 },
+            outputKey: 'res',
+          },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+    };
+
+    const engine = new ExecutionEngine(divZeroWorkflow);
+    const result = await engine.run();
+
+    expect(result.status).toBe('failed');
+    expect(result.errorSummary).toBe('Division by zero in math node "n2"');
+
+    const failedExecution = engine.nodeExecutions.find((ne) => ne.nodeId === 'n2');
+    expect(failedExecution).toBeDefined();
+    expect(failedExecution.status).toBe('failed');
+    expect(failedExecution.error).toContain('Division by zero in math node "n2"');
+  });
+
+  it('fails math node with clear error when operands are non-numeric', async () => {
+    const nonNumericWorkflow = {
+      nodes: [
+        { id: 'n1', type: 'input', data: { values: { str: 'abc' } } },
+        {
+          id: 'n2',
+          type: 'math',
+          data: {
+            label: 'Invalid Math',
+            left: { source: 'ref', key: 'str' },
+            op: 'add',
+            right: { source: 'literal', value: 10 },
+            outputKey: 'res',
+          },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+    };
+
+    const engine = new ExecutionEngine(nonNumericWorkflow);
+    const result = await engine.run();
+
+    expect(result.status).toBe('failed');
+    expect(result.errorSummary).toContain('operands must evaluate to numbers');
+
+    const failedExecution = engine.nodeExecutions.find((ne) => ne.nodeId === 'n2');
+    expect(failedExecution).toBeDefined();
+    expect(failedExecution.status).toBe('failed');
+    expect(failedExecution.error).toContain('operands must evaluate to numbers (received left: string, right: number)');
+  });
+
+  it('fails transform node with clear error when input is not numeric for round or add', async () => {
+    const invalidTransformWorkflow = {
+      nodes: [
+        { id: 'n1', type: 'input', data: { values: { invalidVal: 'not_a_number' } } },
+        {
+          id: 'n2',
+          type: 'transform',
+          data: {
+            label: 'Bad Round',
+            input: { source: 'ref', key: 'invalidVal' },
+            operation: 'round',
+            outputKey: 'rounded',
+          },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+    };
+
+    const engine = new ExecutionEngine(invalidTransformWorkflow);
+    const result = await engine.run();
+
+    expect(result.status).toBe('failed');
+    expect(result.errorSummary).toContain('Transform round operation requires numeric input');
+
+    const failedExecution = engine.nodeExecutions.find((ne) => ne.nodeId === 'n2');
+    expect(failedExecution).toBeDefined();
+    expect(failedExecution.status).toBe('failed');
+    expect(failedExecution.error).toContain('requires numeric input in node "n2"');
+  });
 });
