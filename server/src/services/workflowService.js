@@ -1,5 +1,6 @@
 import Workflow from '../models/Workflow.js';
 import Run from '../models/Run.js';
+import NodeExecution from '../models/NodeExecution.js';
 import { ExecutionEngine } from './executionEngine.js';
 import { validateWorkflowDefinition } from '../utils/validator.js';
 import { NotFoundError } from '../utils/errors.js';
@@ -48,8 +49,9 @@ export async function deleteWorkflow(id) {
     throw new NotFoundError(`Workflow with id ${id} not found`);
   }
   await Workflow.findByIdAndDelete(id);
-  // Also clean up associated runs
+  // Also clean up associated runs and node executions
   await Run.deleteMany({ workflowId: id });
+  await NodeExecution.deleteMany({ workflowId: id });
   return { success: true, message: `Workflow ${id} deleted` };
 }
 
@@ -83,6 +85,17 @@ export async function executeWorkflow(id, onEventCallback = null) {
   run.completedAt = new Date();
   await run.save();
 
+  // Persist each individual node execution
+  if (result.nodeExecutions && result.nodeExecutions.length > 0) {
+    await NodeExecution.insertMany(
+      result.nodeExecutions.map((ne) => ({
+        runId: run._id,
+        workflowId: workflow._id,
+        ...ne,
+      }))
+    );
+  }
+
   return {
     runId: run._id,
     status: run.status,
@@ -103,5 +116,8 @@ export async function getRunById(runId) {
   if (!run) {
     throw new NotFoundError(`Run with id ${runId} not found`);
   }
-  return run;
+  const nodeExecutions = await NodeExecution.find({ runId }).sort({ startedAt: 1 });
+  const runObj = run.toObject();
+  runObj.nodeExecutions = nodeExecutions;
+  return runObj;
 }

@@ -165,4 +165,24 @@ describe('Workflow API Integration Tests', () => {
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBe(2); // One synchronous, one SSE
   });
+
+  it('retrieves run details with persisted node executions linked to the run', async () => {
+    const runsRes = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/runs`);
+    const runs = await runsRes.json();
+    const runId = runs[0]._id;
+
+    const res = await fetch(`${baseUrl}/api/runs/${runId}`);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data._id).toBe(runId);
+    expect(data.status).toBe('success');
+    expect(Array.isArray(data.nodeExecutions)).toBe(true);
+    expect(data.nodeExecutions.length).toBeGreaterThan(0);
+    const firstNode = data.nodeExecutions[0];
+    expect(firstNode.nodeId).toBeDefined();
+    expect(firstNode.nodeType).toBeDefined();
+    expect(firstNode.status).toBeDefined();
+    expect(firstNode.startedAt).toBeDefined();
+    expect(firstNode.completedAt).toBeDefined();
+  });
 });

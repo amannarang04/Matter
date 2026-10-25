@@ -72,6 +72,7 @@ export class ExecutionEngine extends EventEmitter {
     this.context = {};
     this.finalOutput = {};
     this.nodeEvents = [];
+    this.nodeExecutions = [];
     this.isAborted = false;
   }
 
@@ -123,6 +124,7 @@ export class ExecutionEngine extends EventEmitter {
         finalOutput: this.finalOutput,
         errorSummary: null,
         nodeEvents: this.nodeEvents,
+        nodeExecutions: this.nodeExecutions,
         durationMs: completedAt - startedAt,
       };
     } catch (error) {
@@ -145,6 +147,7 @@ export class ExecutionEngine extends EventEmitter {
         finalOutput: this.finalOutput,
         errorSummary: errorMsg,
         nodeEvents: this.nodeEvents,
+        nodeExecutions: this.nodeExecutions,
         durationMs: failedAt - startedAt,
       };
     }
@@ -213,6 +216,17 @@ export class ExecutionEngine extends EventEmitter {
           timestamp: Date.now(),
         };
         this.nodeEvents.push(skippedEvent);
+        this.nodeExecutions.push({
+          nodeId: node.id,
+          nodeType: node.type,
+          status: 'skipped',
+          inputs: {},
+          outputs: {},
+          error: null,
+          startedAt: new Date(),
+          completedAt: new Date(),
+          durationMs: 0,
+        });
         this.emitEvent(skippedEvent);
         continue;
       }
@@ -262,6 +276,17 @@ export class ExecutionEngine extends EventEmitter {
           timestamp: Date.now(),
         };
         this.nodeEvents.push(successEvent);
+        this.nodeExecutions.push({
+          nodeId: node.id,
+          nodeType: node.type,
+          status: 'success',
+          inputs,
+          outputs,
+          error: null,
+          startedAt: new Date(nodeStartTime),
+          completedAt: new Date(),
+          durationMs: nodeDuration,
+        });
         this.emitEvent(successEvent);
       } catch (err) {
         const nodeDuration = Date.now() - nodeStartTime;
@@ -280,6 +305,17 @@ export class ExecutionEngine extends EventEmitter {
           timestamp: Date.now(),
         };
         this.nodeEvents.push(failedEvent);
+        this.nodeExecutions.push({
+          nodeId: node.id,
+          nodeType: node.type,
+          status: 'failed',
+          inputs: {},
+          outputs: {},
+          error: err.message,
+          startedAt: new Date(nodeStartTime),
+          completedAt: new Date(),
+          durationMs: nodeDuration,
+        });
         this.emitEvent(failedEvent);
 
         throw err;
