@@ -17,8 +17,6 @@ export async function retryRun(req, res, next) {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': req.headers.origin || '*',
-      'Access-Control-Allow-Credentials': 'true',
     });
     res.flushHeaders?.();
 
