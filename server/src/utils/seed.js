@@ -1,3 +1,7 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+import mongoose from 'mongoose';
 import Workflow from '../models/Workflow.js';
 
 export const CONTRACT_DISCOUNT_WORKFLOW = {
@@ -91,13 +95,37 @@ export const CONTRACT_DISCOUNT_WORKFLOW = {
 };
 
 export async function seedInitialWorkflows() {
-  try {
-    const count = await Workflow.countDocuments();
-    if (count === 0) {
-      await Workflow.create(CONTRACT_DISCOUNT_WORKFLOW);
-      console.log('Seeded default Discount & Tier Evaluation workflow');
-    }
-  } catch (err) {
-    console.error('Error seeding initial workflow:', err.message);
+  const count = await Workflow.countDocuments();
+  if (count === 0) {
+    const created = await Workflow.create(CONTRACT_DISCOUNT_WORKFLOW);
+    console.log(`Seeded default Discount & Tier Evaluation workflow (ID: ${created._id})`);
+    return created;
+  } else {
+    console.log(`Database already contains ${count} workflow(s). Skipping seed.`);
+    return null;
   }
+}
+
+// Standalone execution entrypoint (e.g., npm run seed)
+const isDirectRun = process.argv[1]?.replace(/\\/g, '/').endsWith('src/utils/seed.js');
+if (isDirectRun) {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.error('FATAL: MONGODB_URI environment variable is required to run seed script.');
+    process.exit(1);
+  }
+
+  (async () => {
+    try {
+      console.log(`Connecting to MongoDB at ${uri}...`);
+      await mongoose.connect(uri);
+      await seedInitialWorkflows();
+      await mongoose.disconnect();
+      console.log('Seeding finished successfully.');
+      process.exit(0);
+    } catch (err) {
+      console.error('Seeding failed:', err);
+      process.exit(1);
+    }
+  })();
 }

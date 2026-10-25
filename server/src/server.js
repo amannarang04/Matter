@@ -3,7 +3,6 @@ dotenv.config();
 
 import mongoose from 'mongoose';
 import app from './app.js';
-import { seedInitialWorkflows } from './utils/seed.js';
 
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -17,8 +16,6 @@ async function startServer() {
   try {
     await mongoose.connect(MONGODB_URI);
     console.log(`Connected to MongoDB at ${MONGODB_URI}`);
-
-    await seedInitialWorkflows();
 
     const server = app.listen(PORT, () => {
       console.log(`Server listening on port ${PORT}`);
