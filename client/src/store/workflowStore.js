@@ -197,6 +197,9 @@ export const useWorkflowStore = create((set, get) => ({
   },
 
   loadWorkflow: (workflow) => {
+    if (workflow._id) {
+      localStorage.setItem('matter_last_workflow_id', workflow._id);
+    }
     set({
       workflowId: workflow._id,
       name: workflow.name,
@@ -211,6 +214,47 @@ export const useWorkflowStore = create((set, get) => ({
       liveLogs: [],
       errorMessage: null,
     });
+  },
+
+  deleteCurrentWorkflow: async () => {
+    const { workflowId } = get();
+    if (!workflowId) return;
+    try {
+      await api.deleteWorkflow(workflowId);
+      localStorage.removeItem('matter_last_workflow_id');
+      const list = await get().fetchWorkflowsList();
+      if (list.length > 0) {
+        get().loadWorkflow(list[0]);
+      } else {
+        get().loadTemplate('discount-tier');
+      }
+    } catch (err) {
+      set({ errorMessage: err.message });
+    }
+  },
+
+  initApp: async () => {
+    const list = await get().fetchWorkflowsList();
+    const lastId = localStorage.getItem('matter_last_workflow_id');
+    if (lastId) {
+      const match = list.find((w) => w._id === lastId);
+      if (match) {
+        get().loadWorkflow(match);
+        return;
+      }
+      try {
+        const remote = await api.fetchWorkflow(lastId);
+        if (remote) {
+          get().loadWorkflow(remote);
+          return;
+        }
+      } catch {
+        localStorage.removeItem('matter_last_workflow_id');
+      }
+    }
+    if (list.length > 0) {
+      get().loadWorkflow(list[0]);
+    }
   },
 
   fetchWorkflowsList: async () => {
@@ -234,6 +278,7 @@ export const useWorkflowStore = create((set, get) => ({
       } else {
         saved = await api.createWorkflow({ name, description, nodes, edges });
       }
+      localStorage.setItem('matter_last_workflow_id', saved._id);
       set({ workflowId: saved._id, isSaving: false });
       get().fetchWorkflowsList();
       return saved;

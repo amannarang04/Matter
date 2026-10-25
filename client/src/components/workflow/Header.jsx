@@ -10,15 +10,18 @@ import {
   FolderOpen,
   Loader2,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 
 export default function Header() {
   const {
     name,
     description,
+    workflowId,
     updateWorkflowMeta,
     saveWorkflow,
     runWorkflow,
+    deleteCurrentWorkflow,
     isSaving,
     isRunning,
     newWorkflow,
@@ -26,15 +29,15 @@ export default function Header() {
     loadWorkflow,
     openHistory,
     allWorkflows,
-    fetchWorkflowsList,
+    initApp,
   } = useWorkflowStore();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(name);
 
   useEffect(() => {
-    fetchWorkflowsList();
-  }, [fetchWorkflowsList]);
+    initApp();
+  }, [initApp]);
 
   const handleTitleSubmit = () => {
     setIsEditingTitle(false);
@@ -179,6 +182,22 @@ export default function Header() {
           {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
           <span>{isSaving ? 'Saving...' : 'Save'}</span>
         </button>
+
+        {/* Delete Workflow */}
+        {workflowId && (
+          <button
+            onClick={() => {
+              if (window.confirm('Delete this workflow from database?')) {
+                deleteCurrentWorkflow();
+              }
+            }}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-850 hover:bg-rose-950/60 border border-slate-700/60 hover:border-rose-800/80 text-xs font-medium text-slate-400 hover:text-rose-300 transition"
+            title="Delete this workflow from database"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Delete</span>
+          </button>
+        )}
 
         {/* Run Workflow CTA */}
         <button
