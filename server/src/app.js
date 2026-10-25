@@ -8,6 +8,9 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
+// Trust reverse proxy (Render, Cloudflare, etc.) for accurate client IP resolution
+app.set('trust proxy', 1);
+
 app.use(helmet());
 
 const allowedOrigins = (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
