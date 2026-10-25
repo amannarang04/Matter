@@ -29,6 +29,7 @@ export const useWorkflowStore = create((set, get) => ({
   runsList: [],
   allWorkflows: [],
   errorMessage: null,
+  isServerWaking: false,
 
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
@@ -234,7 +235,41 @@ export const useWorkflowStore = create((set, get) => ({
   },
 
   initApp: async () => {
-    const list = await get().fetchWorkflowsList();
+    // If backend takes longer than 2.5s to respond, show cold-start waking banner
+    const slowTimer = setTimeout(() => {
+      set({ isServerWaking: true });
+    }, 2500);
+
+    const maxRetries = 20;
+    let list = [];
+    let success = false;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        list = await api.fetchWorkflows();
+        success = true;
+        break;
+      } catch (err) {
+        set({ isServerWaking: true, errorMessage: null });
+        if (attempt === maxRetries) {
+          set({
+            isServerWaking: false,
+            errorMessage: 'Server took too long to wake up. Please refresh the page.',
+          });
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
+
+    clearTimeout(slowTimer);
+    set({ isServerWaking: false, allWorkflows: list });
+
+    if (!success) {
+      get().loadTemplate('discount-tier');
+      return;
+    }
+
     const lastId = localStorage.getItem('matter_last_workflow_id');
     if (lastId) {
       const match = list.find((w) => w._id === lastId);
@@ -254,6 +289,8 @@ export const useWorkflowStore = create((set, get) => ({
     }
     if (list.length > 0) {
       get().loadWorkflow(list[0]);
+    } else {
+      get().loadTemplate('discount-tier');
     }
   },
 

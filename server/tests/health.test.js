@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import mongoose from 'mongoose';
 import app from '../src/app.js';
 
 describe('GET /api/health', () => {
@@ -6,6 +7,8 @@ describe('GET /api/health', () => {
   let baseUrl;
 
   beforeAll(async () => {
+    await mongoose.connect('mongodb://127.0.0.1:27017/matter_health_test');
+
     await new Promise((resolve) => {
       server = app.listen(0, () => {
         const port = server.address().port;
@@ -17,14 +20,16 @@ describe('GET /api/health', () => {
 
   afterAll(async () => {
     await new Promise((resolve) => server.close(resolve));
+    await mongoose.disconnect();
   });
 
-  it('returns status ok', async () => {
+  it('returns status ok and database connected when DB is online', async () => {
     const response = await fetch(`${baseUrl}/api/health`);
     expect(response.status).toBe(200);
 
     const data = await response.json();
     expect(data.status).toBe('ok');
+    expect(data.database).toBe('connected');
   });
 
   it('allows configured origin and handles preflight OPTIONS request', async () => {
