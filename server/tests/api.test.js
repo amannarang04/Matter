@@ -145,13 +145,16 @@ describe('Workflow API Integration Tests', () => {
     expect(data.nodeEvents.length).toBeGreaterThan(0);
   });
 
-  it('executes a workflow with SSE streaming', async () => {
+  it('executes a workflow with hardened SSE streaming headers', async () => {
     const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/execute?stream=true`, {
       method: 'POST',
     });
 
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/event-stream');
+    expect(res.headers.get('cache-control')).toBe('no-cache');
+    expect(res.headers.get('connection')).toBe('keep-alive');
+    expect(res.headers.get('x-accel-buffering')).toBe('no');
 
     const bodyText = await res.text();
     expect(bodyText).toContain('"type":"run"');

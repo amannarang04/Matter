@@ -1,4 +1,5 @@
 import * as workflowService from '../services/workflowService.js';
+import { initSSE } from '../utils/sse.js';
 
 export async function getRun(req, res, next) {
   try {
@@ -13,21 +14,16 @@ export async function retryRun(req, res, next) {
   const isSSE = req.query.stream === 'true' || req.headers.accept?.includes('text/event-stream');
 
   if (isSSE) {
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    });
-    res.flushHeaders?.();
+    const sse = initSSE(req, res);
 
     const onEvent = (event) => {
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
+      sse.sendEvent(event);
     };
 
     try {
       await workflowService.retryRun(req.params.id, onEvent);
-      res.write(`event: done\ndata: {}\n\n`);
-      res.end();
+      sse.sendEvent({}, 'done');
+      sse.closeStream();
     } catch (err) {
       const errorEvent = {
         type: 'run',
@@ -35,8 +31,8 @@ export async function retryRun(req, res, next) {
         errorSummary: err.message,
         timestamp: Date.now(),
       };
-      res.write(`data: ${JSON.stringify(errorEvent)}\n\n`);
-      res.end();
+      sse.sendEvent(errorEvent);
+      sse.closeStream();
     }
   } else {
     try {
