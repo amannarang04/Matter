@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
 export async function fetchWorkflows() {
   const res = await fetch(`${API_BASE}/api/workflows`);

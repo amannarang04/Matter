@@ -6,7 +6,12 @@ import app from './app.js';
 import { seedInitialWorkflows } from './utils/seed.js';
 
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/matter';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+  console.error('FATAL: MONGODB_URI environment variable is missing.');
+  process.exit(1);
+}
 
 async function startServer() {
   try {
