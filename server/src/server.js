@@ -20,9 +20,32 @@ async function startServer() {
 
     await seedInitialWorkflows();
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Server listening on port ${PORT}`);
     });
+
+    const shutdown = async (signal) => {
+      console.log(`Received ${signal}. Shutting down gracefully...`);
+      server.close(async () => {
+        console.log('HTTP server closed.');
+        try {
+          await mongoose.connection.close();
+          console.log('MongoDB connection closed.');
+          process.exit(0);
+        } catch (dbErr) {
+          console.error('Error closing MongoDB connection:', dbErr);
+          process.exit(1);
+        }
+      });
+
+      setTimeout(() => {
+        console.error('Forced shutdown due to timeout');
+        process.exit(1);
+      }, 10000).unref();
+    };
+
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (error) {
     console.error('Failed to connect to MongoDB or start server:', error);
     process.exit(1);
