@@ -31,18 +31,25 @@ export const useWorkflowStore = create((set, get) => ({
   errorMessage: null,
   isServerWaking: false,
 
-  setNodes: (nodes) => set({ nodes }),
-  setEdges: (edges) => set({ edges }),
+  replayingRun: null,
+  cachedLiveState: null,
+  workflowUpdatedAt: null,
+  lastEditedAt: null,
+
+  setNodes: (nodes) => set({ nodes, lastEditedAt: Date.now() }),
+  setEdges: (edges) => set({ edges, lastEditedAt: Date.now() }),
 
   onNodesChange: (changes) => {
     set({
       nodes: applyNodeChanges(changes, get().nodes),
+      lastEditedAt: Date.now(),
     });
   },
 
   onEdgesChange: (changes) => {
     set({
       edges: applyEdgeChanges(changes, get().edges),
+      lastEditedAt: Date.now(),
     });
   },
 
@@ -207,6 +214,10 @@ export const useWorkflowStore = create((set, get) => ({
       description: workflow.description || '',
       nodes: workflow.nodes || [],
       edges: workflow.edges || [],
+      workflowUpdatedAt: workflow.updatedAt || null,
+      lastEditedAt: null,
+      replayingRun: null,
+      cachedLiveState: null,
       selectedNodeId: null,
       runStatus: 'idle',
       runContext: {},
@@ -316,7 +327,12 @@ export const useWorkflowStore = create((set, get) => ({
         saved = await api.createWorkflow({ name, description, nodes, edges });
       }
       localStorage.setItem('matter_last_workflow_id', saved._id);
-      set({ workflowId: saved._id, isSaving: false });
+      set({
+        workflowId: saved._id,
+        isSaving: false,
+        workflowUpdatedAt: saved.updatedAt || new Date().toISOString(),
+        lastEditedAt: null,
+      });
       get().fetchWorkflowsList();
       return saved;
     } catch (err) {
@@ -326,6 +342,11 @@ export const useWorkflowStore = create((set, get) => ({
   },
 
   runWorkflow: async () => {
+    // Starting a new run exits replay mode
+    if (get().replayingRun) {
+      set({ replayingRun: null, cachedLiveState: null });
+    }
+
     // Save first to ensure server has current nodes/edges
     let currentId = get().workflowId;
     set({
@@ -396,6 +417,81 @@ export const useWorkflowStore = create((set, get) => ({
           errorMessage: err.message || 'Stream connection error',
         });
       },
+    });
+  },
+
+  replayRun: async (run) => {
+    let fullRun = run;
+    try {
+      fullRun = await api.fetchRun(run._id);
+    } catch {
+      fullRun = run;
+    }
+
+    // Cache current live state if not already replaying
+    if (!get().replayingRun) {
+      set({
+        cachedLiveState: {
+          nodeStates: get().nodeStates,
+          runStatus: get().runStatus,
+          runContext: get().runContext,
+          finalOutput: get().finalOutput,
+          liveLogs: get().liveLogs,
+          errorMessage: get().errorMessage,
+        },
+      });
+    }
+
+    const newNodeStates = {};
+    if (Array.isArray(fullRun.nodeExecutions) && fullRun.nodeExecutions.length > 0) {
+      fullRun.nodeExecutions.forEach((ne) => {
+        newNodeStates[ne.nodeId] = {
+          status: ne.status,
+          inputs: ne.inputs || {},
+          outputs: ne.outputs || {},
+          error: ne.error || null,
+          durationMs: ne.durationMs || 0,
+          timestamp: ne.completedAt ? new Date(ne.completedAt).getTime() : Date.now(),
+        };
+      });
+    } else if (Array.isArray(fullRun.nodeEvents)) {
+      fullRun.nodeEvents.forEach((ev) => {
+        if (ev && ev.type === 'node') {
+          newNodeStates[ev.nodeId] = {
+            status: ev.status,
+            inputs: ev.inputs || {},
+            outputs: ev.outputs || {},
+            error: ev.error || null,
+            durationMs: ev.durationMs || 0,
+            timestamp: ev.timestamp || Date.now(),
+          };
+        }
+      });
+    }
+
+    set({
+      replayingRun: fullRun,
+      isHistoryOpen: false,
+      nodeStates: newNodeStates,
+      runStatus: fullRun.status,
+      runContext: fullRun.runContext || {},
+      finalOutput: fullRun.finalOutput || {},
+      errorMessage: fullRun.errorSummary || null,
+      liveLogs: fullRun.nodeEvents || [],
+    });
+  },
+
+  exitReplay: () => {
+    const cached = get().cachedLiveState;
+    set({
+      replayingRun: null,
+      cachedLiveState: null,
+      nodeStates: cached ? cached.nodeStates : {},
+      runStatus: cached ? cached.runStatus : 'idle',
+      runContext: cached ? cached.runContext : {},
+      finalOutput: cached ? cached.finalOutput : {},
+      liveLogs: cached ? cached.liveLogs : [],
+      errorMessage: cached ? cached.errorMessage : null,
     });
   },
 

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
-import { X, Clock, Calendar } from 'lucide-react';
+import { X, Clock, Calendar, Eye } from 'lucide-react';
 
 export default function RunHistoryModal() {
-  const { isHistoryOpen, closeHistory, runsList } = useWorkflowStore();
+  const { isHistoryOpen, closeHistory, runsList, replayRun } = useWorkflowStore();
   const [selectedRun, setSelectedRun] = useState(null);
 
   if (!isHistoryOpen) return null;
@@ -39,10 +39,10 @@ export default function RunHistoryModal() {
                 const isSelected = selectedRun?._id === run._id;
 
                 return (
-                  <button
+                  <div
                     key={run._id}
                     onClick={() => setSelectedRun(run)}
-                    className={`w-full text-left p-3 rounded-xl border transition flex flex-col gap-1.5 ${
+                    className={`w-full text-left p-3 rounded-xl border transition flex flex-col gap-1.5 cursor-pointer ${
                       isSelected
                         ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200'
                         : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:bg-slate-850 hover:border-slate-700'
@@ -64,7 +64,18 @@ export default function RunHistoryModal() {
                       <Calendar className="w-3 h-3 text-slate-500" />
                       <span className="truncate">{date}</span>
                     </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        replayRun(run);
+                      }}
+                      className="mt-1 flex items-center justify-center gap-1.5 w-full py-1 rounded bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-semibold transition shadow-sm"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>View on canvas</span>
+                    </button>
+                  </div>
                 );
               })
             )}
@@ -74,9 +85,21 @@ export default function RunHistoryModal() {
           <div className="flex-1 overflow-y-auto p-6 bg-slate-900/60 space-y-6">
             {selectedRun ? (
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-300 mb-1">Execution Summary</h3>
-                  <div className="grid grid-cols-3 gap-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-300">Execution Summary</h3>
+                    <span className="text-xs text-slate-500 font-mono">{selectedRun._id}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => replayRun(selectedRun)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>View on canvas</span>
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-xs">
                     <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
                       <span className="text-slate-500 text-[10px] uppercase font-bold">Status</span>
                       <p className="font-semibold text-emerald-400 mt-1 capitalize">{selectedRun.status}</p>
@@ -92,7 +115,6 @@ export default function RunHistoryModal() {
                       </p>
                     </div>
                   </div>
-                </div>
 
                 <div>
                   <h3 className="text-sm font-semibold text-slate-300 mb-2">Final Output</h3>
