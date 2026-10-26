@@ -111,7 +111,7 @@ flowchart TD
 
     Browser <-->|HTTPS Static Delivery| Hosting_Vercel
     UI <-->|"REST API Requests (Fetch)"| ExpressApp
-    UI <-->|Server-Sent Events (SSE Stream)| SSEModule
+    UI <-->|"SSE Stream (text/event-stream)"| SSEModule
     ExpressApp --> Validator
     Validator --> Engine
     Engine --> SSEModule
