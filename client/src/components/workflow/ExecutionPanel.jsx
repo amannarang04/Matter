@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
+  Play,
 } from 'lucide-react';
 
 export default function ExecutionPanel() {
@@ -20,7 +21,18 @@ export default function ExecutionPanel() {
     activeBottomTab,
     setActiveBottomTab,
     errorMessage,
+    runWorkflow,
+    isRunning,
+    nodes,
+    nodeStates,
   } = useWorkflowStore();
+
+  const failedNodeId = Object.keys(nodeStates || {}).find(
+    (id) => nodeStates[id]?.status === 'failed'
+  );
+  const failedNode = (nodes || []).find((n) => n.id === failedNodeId);
+  const failedNodeLabel = failedNode?.data?.label || (failedNodeId ? `Node "${failedNodeId}"` : null);
+  const displayError = (failedNodeId && nodeStates[failedNodeId]?.error) || errorMessage;
 
   const [isExpanded, setIsExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -240,10 +252,30 @@ export default function ExecutionPanel() {
         </div>
       )}
 
-      {errorMessage && (
-        <div className="px-4 py-2 bg-rose-950/80 border-t border-rose-800/60 text-xs text-rose-300 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
-          <span className="font-sans">{errorMessage}</span>
+      {(runStatus === 'failed' || errorMessage) && (
+        <div className="px-4 py-2.5 bg-rose-950/95 border-t border-rose-800/80 text-xs text-rose-200 flex items-center justify-between gap-3 shadow-inner">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <div className="flex items-center gap-2 truncate">
+              {failedNodeLabel && (
+                <span className="px-1.5 py-0.5 rounded bg-rose-900/80 border border-rose-700/80 text-[11px] font-bold text-rose-200 shrink-0">
+                  {failedNodeLabel}
+                </span>
+              )}
+              <span className="font-sans font-medium truncate">
+                {displayError || 'Workflow execution failed'}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={runWorkflow}
+            disabled={isRunning}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition disabled:opacity-50 shrink-0"
+            title="Fix configuration and trigger a new run"
+          >
+            <Play className="w-3 h-3 fill-current" />
+            <span>Fix and rerun</span>
+          </button>
         </div>
       )}
     </div>

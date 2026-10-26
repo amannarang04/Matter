@@ -145,6 +145,9 @@ export async function executeWorkflowStream(workflowId, { onEvent, onDone, onErr
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+      if (res.status === 409) {
+        throw new Error('A run is already currently in progress for this workflow. Please wait a moment before trying again.');
+      }
       throw new Error(err.error?.message || 'Failed to start execution');
     }
 
