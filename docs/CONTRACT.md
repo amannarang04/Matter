@@ -214,3 +214,31 @@ A node is Skipped when every path that could reach it passes through an unselect
 }
 ```
 *Explanation: `discountedPrice` (1350) > 1000 evaluates to `true`. Node `node-5` runs and produces the final output. Node `node-6` is skipped as its incoming edge originates from the unselected `"false"` handle of `node-4`.*
+
+---
+
+## J. REST Endpoints
+
+### 1. Health & Diagnostics
+| Method | Path | Purpose | Success Status | Error Codes |
+| :--- | :--- | :--- | :---: | :--- |
+| `GET` | `/api/health` | Health check verifying server responsiveness and MongoDB connection state | `200` (`503` if degraded) | - |
+
+### 2. Workflows (`/api/workflows`)
+| Method | Path | Purpose | Success Status | Error Codes |
+| :--- | :--- | :--- | :---: | :--- |
+| `POST` | `/api/workflows` | Create a new workflow definition with graph validation | `201` | `VALIDATION_ERROR` (400) |
+| `GET` | `/api/workflows` | List all saved workflows sorted by last update date | `200` | - |
+| `GET` | `/api/workflows/:id` | Retrieve a single workflow definition by ID | `200` | `NOT_FOUND` (404) |
+| `PUT` | `/api/workflows/:id` | Update workflow metadata, nodes, and edges | `200` | `VALIDATION_ERROR` (400), `NOT_FOUND` (404) |
+| `DELETE` | `/api/workflows/:id` | Delete workflow and cascade delete associated runs and node executions | `200` | `NOT_FOUND` (404) |
+| `POST` | `/api/workflows/:id/execute` | Execute workflow synchronously or stream live SSE execution events (`?stream=true` or `Accept: text/event-stream`). Rate limited. | `200` | `VALIDATION_ERROR` (400), `NOT_FOUND` (404), `CONCURRENT_RUN_CONFLICT` (409), `RATE_LIMIT_EXCEEDED` (429) |
+| `POST` | `/api/workflows/:id/run` | Execution alias for `POST /api/workflows/:id/execute`. Rate limited. | `200` | `VALIDATION_ERROR` (400), `NOT_FOUND` (404), `CONCURRENT_RUN_CONFLICT` (409), `RATE_LIMIT_EXCEEDED` (429) |
+| `GET` | `/api/workflows/:id/runs` | Retrieve execution run history for a workflow (latest 50 runs) | `200` | `NOT_FOUND` (404) |
+
+### 3. Runs (`/api/runs`)
+| Method | Path | Purpose | Success Status | Error Codes |
+| :--- | :--- | :--- | :---: | :--- |
+| `GET` | `/api/runs/:id` | Retrieve run details including individual persisted node executions | `200` | `NOT_FOUND` (404) |
+| `POST` | `/api/runs/:id/retry` | Re-run workflow associated with a past run ID (creates a new run record). Supports synchronous or SSE stream. Rate limited. | `201` (sync) / `200` (SSE) | `NOT_FOUND` (404), `CONCURRENT_RUN_CONFLICT` (409), `RATE_LIMIT_EXCEEDED` (429) |
+
