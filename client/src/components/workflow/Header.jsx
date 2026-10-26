@@ -128,29 +128,39 @@ export default function Header() {
         </div>
 
         {/* Load Saved Workflows */}
-        {allWorkflows.length > 0 && (
-          <div className="relative">
-            <select
-              onChange={(e) => {
-                const wf = allWorkflows.find((w) => w._id === e.target.value);
-                if (wf) loadWorkflow(wf);
-                e.target.value = '';
-              }}
-              defaultValue=""
-              className="appearance-none px-3 py-1.5 pr-7 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/70 rounded-lg text-xs font-medium text-slate-300 focus:outline-none transition cursor-pointer"
-            >
-              <option value="" disabled>
-                Open Workflow...
-              </option>
-              {allWorkflows.map((w) => (
-                <option key={w._id} value={w._id}>
-                  {w.name}
+        <div className="relative">
+          {allWorkflows.length > 0 ? (
+            <>
+              <select
+                onChange={(e) => {
+                  const wf = allWorkflows.find((w) => w._id === e.target.value);
+                  if (wf) loadWorkflow(wf);
+                  e.target.value = '';
+                }}
+                defaultValue=""
+                className="appearance-none px-3 py-1.5 pr-7 bg-slate-800/80 hover:bg-slate-800 border border-slate-700/70 rounded-lg text-xs font-medium text-slate-300 focus:outline-none transition cursor-pointer"
+              >
+                <option value="" disabled>
+                  Open Workflow...
                 </option>
-              ))}
-            </select>
-            <FolderOpen className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-        )}
+                {allWorkflows.map((w) => (
+                  <option key={w._id} value={w._id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+              <FolderOpen className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </>
+          ) : (
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/40 border border-slate-700/40 rounded-lg text-xs font-medium text-slate-500 cursor-not-allowed select-none"
+              title="No saved workflows in database"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-slate-500" />
+              <span>No saved workflows</span>
+            </div>
+          )}
+        </div>
 
         {/* New Workflow */}
         <button

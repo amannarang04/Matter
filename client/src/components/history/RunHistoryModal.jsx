@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
-import { X, Clock, Calendar, Eye } from 'lucide-react';
+import { X, Clock, Calendar, Eye, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
 
 export default function RunHistoryModal() {
-  const { isHistoryOpen, closeHistory, runsList, replayRun } = useWorkflowStore();
+  const {
+    isHistoryOpen,
+    closeHistory,
+    runsList,
+    replayRun,
+    isHistoryLoading,
+    historyError,
+    loadRuns,
+  } = useWorkflowStore();
   const [selectedRun, setSelectedRun] = useState(null);
 
   if (!isHistoryOpen) return null;
@@ -29,7 +37,25 @@ export default function RunHistoryModal() {
         <div className="flex-1 flex overflow-hidden">
           {/* Runs Sidebar List */}
           <div className="w-1/3 border-r border-slate-800 overflow-y-auto p-3 space-y-2 bg-slate-950/40">
-            {runsList.length === 0 ? (
+            {isHistoryLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 gap-2.5 text-slate-400">
+                <Loader2 className="w-5 h-5 animate-spin text-indigo-400" />
+                <span className="text-xs">Loading execution history...</span>
+              </div>
+            ) : historyError ? (
+              <div className="flex flex-col items-center justify-center py-12 gap-3 text-center px-3">
+                <AlertCircle className="w-5 h-5 text-rose-400" />
+                <p className="text-xs text-rose-300 font-medium">{historyError}</p>
+                <button
+                  type="button"
+                  onClick={loadRuns}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Retry</span>
+                </button>
+              </div>
+            ) : runsList.length === 0 ? (
               <p className="text-slate-500 text-xs italic text-center py-8">
                 No past runs recorded for this workflow yet.
               </p>

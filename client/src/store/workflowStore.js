@@ -26,6 +26,8 @@ export const useWorkflowStore = create((set, get) => ({
   liveLogs: [],
   activeBottomTab: 'logs', // 'logs' | 'context' | 'output'
   isHistoryOpen: false,
+  isHistoryLoading: false,
+  historyError: null,
   runsList: [],
   allWorkflows: [],
   errorMessage: null,
@@ -498,11 +500,13 @@ export const useWorkflowStore = create((set, get) => ({
   loadRuns: async () => {
     const id = get().workflowId;
     if (!id) return;
+    set({ isHistoryLoading: true, historyError: null });
     try {
       const runs = await api.fetchWorkflowRuns(id);
-      set({ runsList: runs });
+      set({ runsList: runs, isHistoryLoading: false, historyError: null });
     } catch (err) {
       console.error('Failed to load runs:', err);
+      set({ isHistoryLoading: false, historyError: err.message || 'Failed to load run history' });
     }
   },
 
