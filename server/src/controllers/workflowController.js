@@ -49,34 +49,45 @@ export async function deleteWorkflow(req, res, next) {
 export async function executeWorkflow(req, res, next) {
   const isSSE = req.query.stream === 'true' || req.headers.accept?.includes('text/event-stream');
 
-  if (isSSE) {
-    const sse = initSSE(req, res);
-
-    const onEvent = (event) => {
-      sse.sendEvent(event);
-    };
-
-    try {
-      await workflowService.executeWorkflow(req.params.id, onEvent);
-      sse.sendEvent({}, 'done');
-      sse.closeStream();
-    } catch (err) {
-      const errorEvent = {
-        type: 'run',
-        status: 'failed',
-        errorSummary: err.message,
-        timestamp: Date.now(),
-      };
-      sse.sendEvent(errorEvent);
-      sse.closeStream();
+  try {
+    const activeRun = await workflowService.getActiveRun(req.params.id);
+    if (activeRun) {
+      return res.status(409).json({
+        error: {
+          code: 'CONCURRENT_RUN_CONFLICT',
+          message: `A run is already in progress for this workflow (active run id: ${activeRun._id})`,
+          details: [{ activeRunId: activeRun._id.toString() }],
+        },
+      });
     }
-  } else {
-    try {
+
+    if (isSSE) {
+      const sse = initSSE(req, res);
+
+      const onEvent = (event) => {
+        sse.sendEvent(event);
+      };
+
+      try {
+        await workflowService.executeWorkflow(req.params.id, onEvent);
+        sse.sendEvent({}, 'done');
+        sse.closeStream();
+      } catch (err) {
+        const errorEvent = {
+          type: 'run',
+          status: 'failed',
+          errorSummary: err.message,
+          timestamp: Date.now(),
+        };
+        sse.sendEvent(errorEvent);
+        sse.closeStream();
+      }
+    } else {
       const result = await workflowService.executeWorkflow(req.params.id);
       res.status(200).json(result);
-    } catch (err) {
-      next(err);
     }
+  } catch (err) {
+    next(err);
   }
 }
 

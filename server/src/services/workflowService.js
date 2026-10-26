@@ -55,45 +55,122 @@ export async function deleteWorkflow(id) {
   return { success: true, message: `Workflow ${id} deleted` };
 }
 
-export async function executeWorkflow(id, onEventCallback = null) {
+export async function getActiveRun(workflowId) {
+  return await Run.findOne({
+    workflowId,
+    status: { $in: ['pending', 'running'] },
+  });
+}
+
+export async function recoverStuckRuns() {
+  const now = new Date();
+  const runResult = await Run.updateMany(
+    { status: { $in: ['pending', 'running'] } },
+    {
+      $set: {
+        status: 'failed',
+        errorSummary: 'Run was interrupted by a server restart',
+        completedAt: now,
+      },
+    }
+  );
+
+  const nodeResult = await NodeExecution.updateMany(
+    { status: { $in: ['pending', 'running'] } },
+    {
+      $set: {
+        status: 'failed',
+        error: 'Run was interrupted by a server restart',
+        completedAt: now,
+      },
+    }
+  );
+
+  return { recoveredRuns: runResult.modifiedCount, recoveredNodes: nodeResult.modifiedCount };
+}
+
+export async function executeWorkflow(id, onEventCallback = null, options = {}) {
   const workflow = await getWorkflowById(id);
   validateWorkflowDefinition(workflow);
+
+  // Duplicate-run guard: check if a run is already in progress
+  const activeRun = await getActiveRun(workflow._id);
+  if (activeRun) {
+    const error = new Error(`A run is already in progress for this workflow (active run id: ${activeRun._id})`);
+    error.statusCode = 409;
+    error.code = 'CONCURRENT_RUN_CONFLICT';
+    error.details = [{ activeRunId: activeRun._id.toString() }];
+    throw error;
+  }
 
   // Initialize Run document
   const run = new Run({
     workflowId: workflow._id,
-    status: 'pending',
+    status: 'running',
     startedAt: new Date(),
   });
   await run.save();
 
-  const engine = new ExecutionEngine(workflow, { runId: run._id.toString() });
+  const engine = new ExecutionEngine(workflow, {
+    runId: run._id.toString(),
+    ...options,
+  });
 
   if (onEventCallback) {
     engine.on('event', onEventCallback);
   }
 
-  const result = await engine.run();
+  let result = null;
+  let executionError = null;
 
-  // Update Run document
-  run.status = result.status;
-  run.runContext = result.runContext;
-  run.finalOutput = result.finalOutput;
-  run.errorSummary = result.errorSummary;
-  run.nodeEvents = result.nodeEvents;
-  run.durationMs = result.durationMs;
-  run.completedAt = new Date();
-  await run.save();
+  try {
+    result = await engine.run();
+  } catch (err) {
+    executionError = err;
+    result = {
+      status: 'failed',
+      runContext: engine.context || {},
+      finalOutput: engine.finalOutput || {},
+      errorSummary: err.message || 'Execution failed unexpectedly',
+      durationMs: Date.now() - run.startedAt.getTime(),
+      nodeEvents: engine.nodeEvents || [],
+      nodeExecutions: engine.nodeExecutions || [],
+    };
+  } finally {
+    const finalStatus = (result && result.status) || 'failed';
+    const finalErrorSummary = (result && result.errorSummary) || (executionError ? executionError.message : null);
 
-  // Persist each individual node execution
-  if (result.nodeExecutions && result.nodeExecutions.length > 0) {
-    await NodeExecution.insertMany(
-      result.nodeExecutions.map((ne) => ({
-        runId: run._id,
-        workflowId: workflow._id,
-        ...ne,
-      }))
-    );
+    run.status = finalStatus;
+    run.runContext = (result && result.runContext) || {};
+    run.finalOutput = (result && result.finalOutput) || {};
+    run.errorSummary = finalErrorSummary;
+    run.nodeEvents = (result && result.nodeEvents) || [];
+    run.durationMs = (result && typeof result.durationMs === 'number') ? result.durationMs : (Date.now() - run.startedAt.getTime());
+    run.completedAt = new Date();
+
+    try {
+      await run.save();
+    } catch (saveErr) {
+      console.error('Failed to save finalized run state:', saveErr);
+    }
+
+    if (result && result.nodeExecutions && result.nodeExecutions.length > 0) {
+      try {
+        await NodeExecution.insertMany(
+          result.nodeExecutions.map((ne) => ({
+            runId: run._id,
+            workflowId: workflow._id,
+            ...ne,
+          }))
+        );
+      } catch (insertErr) {
+        console.error('Failed to persist node executions:', insertErr);
+      }
+    }
+  }
+
+  if (executionError) {
+    throw executionError;
   }
 
   return {

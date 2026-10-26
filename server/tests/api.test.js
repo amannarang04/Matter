@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import mongoose from 'mongoose';
 import app from '../src/app.js';
 import Workflow from '../src/models/Workflow.js';
+import { recoverStuckRuns, executeWorkflow } from '../src/services/workflowService.js';
 
 describe('Workflow API Integration Tests', () => {
   let server;
@@ -238,4 +239,107 @@ describe('Workflow API Integration Tests', () => {
     expect(data.error.code).toBe('VALIDATION_ERROR');
     expect(data.error.details.some((d) => d.message.includes('at least one input node'))).toBe(true);
   });
+
+  it('returns 409 CONCURRENT_RUN_CONFLICT when a run is already in progress', async () => {
+    // Import Run model to simulate an active run
+    const RunModel = mongoose.model('Run');
+    const activeRun = await RunModel.create({
+      workflowId: createdWorkflowId,
+      status: 'running',
+      startedAt: new Date(),
+    });
+
+    try {
+      const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/run`, {
+        method: 'POST',
+      });
+
+      expect(res.status).toBe(409);
+      const data = await res.json();
+      expect(data.error.code).toBe('CONCURRENT_RUN_CONFLICT');
+      expect(data.error.message).toContain(activeRun._id.toString());
+      expect(data.error.details[0].activeRunId).toBe(activeRun._id.toString());
+    } finally {
+      // Clean up the active run to release the guard for other tests
+      await RunModel.findByIdAndDelete(activeRun._id);
+    }
+  });
+
+  it('recovers stuck pending and running runs and node executions on server startup', async () => {
+    const RunModel = mongoose.model('Run');
+    const NodeExecutionModel = mongoose.model('NodeExecution');
+
+    const stuckRun = await RunModel.create({
+      workflowId: createdWorkflowId,
+      status: 'running',
+      startedAt: new Date(Date.now() - 60000),
+    });
+
+    const stuckNode = await NodeExecutionModel.create({
+      runId: stuckRun._id,
+      workflowId: createdWorkflowId,
+      nodeId: 'node-delay-test',
+      nodeType: 'delay',
+      status: 'running',
+      startedAt: new Date(Date.now() - 60000),
+    });
+
+    const recoveryResult = await recoverStuckRuns();
+    expect(recoveryResult.recoveredRuns).toBeGreaterThanOrEqual(1);
+    expect(recoveryResult.recoveredNodes).toBeGreaterThanOrEqual(1);
+
+    const updatedRun = await RunModel.findById(stuckRun._id);
+    expect(updatedRun.status).toBe('failed');
+    expect(updatedRun.errorSummary).toBe('Run was interrupted by a server restart');
+    expect(updatedRun.completedAt).toBeDefined();
+
+    const updatedNode = await NodeExecutionModel.findById(stuckNode._id);
+    expect(updatedNode.status).toBe('failed');
+    expect(updatedNode.error).toBe('Run was interrupted by a server restart');
+    expect(updatedNode.completedAt).toBeDefined();
+  });
+
+  it('handles execution timeout in finally block and releases concurrent run guard', async () => {
+    // Create a workflow with a delay node
+    const timeoutWorkflow = await Workflow.create({
+      name: 'Timeout Test Workflow',
+      nodes: [
+        {
+          id: 'n-in',
+          type: 'input',
+          data: { label: 'Input', values: { val: 1 } },
+        },
+        {
+          id: 'n-delay',
+          type: 'delay',
+          data: { label: 'Slow Delay', ms: 500 },
+        },
+        {
+          id: 'n-out',
+          type: 'output',
+          data: { label: 'Output', fields: [{ key: 'out', value: { source: 'ref', key: 'val' } }] },
+        },
+      ],
+      edges: [
+        { id: 'e1', source: 'n-in', target: 'n-delay' },
+        { id: 'e2', source: 'n-delay', target: 'n-out' },
+      ],
+    });
+
+    // Execute with a short timeout (50ms)
+    const result = await executeWorkflow(timeoutWorkflow._id, null, { timeoutMs: 50 });
+    expect(result.status).toBe('failed');
+    expect(result.errorSummary).toContain('timed out after 50ms');
+
+    // Verify Run record was finalized with completedAt
+    const RunModel = mongoose.model('Run');
+    const savedRun = await RunModel.findById(result.runId);
+    expect(savedRun.status).toBe('failed');
+    expect(savedRun.completedAt).toBeDefined();
+
+    // Verify duplicate-run guard is released by immediately running again without 409
+    const secondRun = await executeWorkflow(timeoutWorkflow._id, null, { timeoutMs: 2000 });
+    expect(secondRun.status).toBe('success');
+  });
 });
+
