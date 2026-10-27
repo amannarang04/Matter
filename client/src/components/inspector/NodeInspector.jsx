@@ -1,6 +1,6 @@
 import React from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
-import { Trash2, X, Plus, AlertTriangle, CheckCircle2, AlertCircle, Loader2, MinusCircle } from 'lucide-react';
+import { Trash2, X, Plus, AlertTriangle, CheckCircle2, AlertCircle, Loader2, MinusCircle, Wrench } from 'lucide-react';
 
 function OperandEditor({ label, operand, onChange, availableKeys = [] }) {
   const current = operand || { source: 'literal', value: 0 };
@@ -183,9 +183,38 @@ export default function NodeInspector() {
           ) : (
             <div className="space-y-2 text-xs">
               {nodeState.error && (
-                <div className="p-2 bg-rose-950/50 border border-rose-800/60 rounded-lg text-rose-300 font-mono text-[11px] break-words">
-                  <span className="font-semibold block text-rose-400 mb-0.5">Error:</span>
-                  {nodeState.error}
+                <div className="p-2.5 bg-rose-950/60 border border-rose-800/80 rounded-lg text-rose-300 text-xs space-y-2">
+                  <div className="font-mono text-[11px] break-words">
+                    <span className="font-semibold block text-rose-400 mb-0.5">Error:</span>
+                    {nodeState.error}
+                  </div>
+                  {nodeState.error.includes('divide by zero') && (
+                    <div className="pt-1 flex flex-col gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateNodeData(id, {
+                            right: { source: 'literal', value: 2 },
+                          });
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-[11px] transition shadow flex items-center justify-center gap-1.5"
+                      >
+                        <Wrench className="w-3.5 h-3.5" />
+                        <span>Auto-fix: Set divisor to 2</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateNodeData(id, {
+                            op: 'multiply',
+                          });
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 font-semibold text-[11px] transition flex items-center justify-center gap-1.5"
+                      >
+                        <span>Switch to Multiply (×)</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

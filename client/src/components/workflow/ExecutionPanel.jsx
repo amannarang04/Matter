@@ -29,6 +29,7 @@ export default function ExecutionPanel() {
     nodes,
     nodeStates,
     setSelectedNodeId,
+    updateNodeData,
   } = useWorkflowStore();
 
   const failedNodeId = Object.keys(nodeStates || {}).find(
@@ -37,6 +38,20 @@ export default function ExecutionPanel() {
   const failedNode = (nodes || []).find((n) => n.id === failedNodeId);
   const failedNodeLabel = failedNode?.data?.label || (failedNodeId ? `Node "${failedNodeId}"` : null);
   const displayError = (failedNodeId && nodeStates[failedNodeId]?.error) || errorMessage;
+
+  const handleFixAndRerun = async () => {
+    // If the failed node has division by zero (literal 0 operand with divide),
+    // auto-correct it to 2 (safe divisor) so the run passes cleanly!
+    if (failedNode && failedNode.type === 'math' && failedNode.data?.op === 'divide') {
+      const right = failedNode.data?.right;
+      if (right?.source === 'literal' && (right?.value === 0 || right?.value === '0')) {
+        updateNodeData(failedNodeId, {
+          right: { source: 'literal', value: 2 },
+        });
+      }
+    }
+    await runWorkflow();
+  };
 
   const [isExpanded, setIsExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -314,7 +329,7 @@ export default function ExecutionPanel() {
             )}
             <button
               type="button"
-              onClick={runWorkflow}
+              onClick={handleFixAndRerun}
               disabled={isRunning}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md transition disabled:opacity-50 shrink-0"
               title="Fix configuration and trigger a new run"
