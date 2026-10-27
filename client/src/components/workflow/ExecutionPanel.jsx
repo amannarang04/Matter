@@ -10,7 +10,9 @@ import {
   ChevronUp,
   Check,
   Play,
+  BarChart2,
 } from 'lucide-react';
+import TimelineView from './TimelineView';
 
 export default function ExecutionPanel() {
   const {
@@ -64,6 +66,26 @@ export default function ExecutionPanel() {
             {liveLogs.length > 0 && (
               <span className="text-[10px] px-1.5 py-0.2 bg-black/30 rounded-full font-mono">
                 {liveLogs.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveBottomTab('timeline');
+              if (!isExpanded) setIsExpanded(true);
+            }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              activeBottomTab === 'timeline' && isExpanded
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+            }`}
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            <span>Timeline</span>
+            {Object.keys(nodeStates || {}).length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 bg-black/30 rounded-full font-mono">
+                {Object.keys(nodeStates || {}).length}
               </span>
             )}
           </button>
@@ -205,6 +227,9 @@ export default function ExecutionPanel() {
               )}
             </div>
           )}
+
+          {/* Timeline Tab */}
+          {activeBottomTab === 'timeline' && <TimelineView />}
 
           {/* Context Tab */}
           {activeBottomTab === 'context' && (

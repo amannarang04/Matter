@@ -59,6 +59,8 @@ export const useWorkflowStore = create((set, get) => ({
 
   replayingRun: null,
   cachedLiveState: null,
+  runStartedAt: null,
+  runDurationMs: 0,
   workflowUpdatedAt: null,
   lastEditedAt: null,
 
@@ -198,6 +200,8 @@ export const useWorkflowStore = create((set, get) => ({
       edges: JSON.parse(JSON.stringify(tmpl.edges)),
       selectedNodeId: null,
       runStatus: 'idle',
+      runStartedAt: null,
+      runDurationMs: 0,
       runContext: {},
       finalOutput: {},
       nodeStates: {},
@@ -222,6 +226,8 @@ export const useWorkflowStore = create((set, get) => ({
       edges: [],
       selectedNodeId: 'node-start',
       runStatus: 'idle',
+      runStartedAt: null,
+      runDurationMs: 0,
       runContext: {},
       finalOutput: {},
       nodeStates: {},
@@ -246,6 +252,8 @@ export const useWorkflowStore = create((set, get) => ({
       cachedLiveState: null,
       selectedNodeId: null,
       runStatus: 'idle',
+      runStartedAt: null,
+      runDurationMs: 0,
       runContext: {},
       finalOutput: {},
       nodeStates: {},
@@ -378,6 +386,8 @@ export const useWorkflowStore = create((set, get) => ({
     set({
       isRunning: true,
       runStatus: 'running',
+      runStartedAt: Date.now(),
+      runDurationMs: 0,
       runContext: {},
       finalOutput: {},
       nodeStates: {},
@@ -402,6 +412,11 @@ export const useWorkflowStore = create((set, get) => ({
 
         if (event.type === 'node') {
           const currentNodes = { ...state.nodeStates };
+          const prev = currentNodes[event.nodeId];
+          const startedAt = event.status === 'running'
+            ? event.timestamp
+            : (prev?.startedAt || (event.timestamp && typeof event.durationMs === 'number' ? event.timestamp - event.durationMs : undefined));
+
           currentNodes[event.nodeId] = {
             status: event.status,
             inputs: event.inputs,
@@ -409,6 +424,8 @@ export const useWorkflowStore = create((set, get) => ({
             error: event.error,
             durationMs: event.durationMs,
             timestamp: event.timestamp,
+            startedAt,
+            completedAt: event.status !== 'running' ? event.timestamp : undefined,
           };
 
           // Accumulate outputs in live run context if node succeeded
@@ -428,6 +445,8 @@ export const useWorkflowStore = create((set, get) => ({
             finalOutput: event.finalOutput || state.finalOutput,
             errorMessage: event.errorSummary || null,
             liveLogs: logs,
+            runStartedAt: event.status === 'running' ? (event.timestamp || state.runStartedAt) : state.runStartedAt,
+            runDurationMs: typeof event.durationMs === 'number' ? event.durationMs : (state.runStartedAt ? Date.now() - state.runStartedAt : state.runDurationMs),
           });
         }
       },
@@ -460,6 +479,8 @@ export const useWorkflowStore = create((set, get) => ({
         cachedLiveState: {
           nodeStates: get().nodeStates,
           runStatus: get().runStatus,
+          runStartedAt: get().runStartedAt,
+          runDurationMs: get().runDurationMs,
           runContext: get().runContext,
           finalOutput: get().finalOutput,
           liveLogs: get().liveLogs,
@@ -467,6 +488,9 @@ export const useWorkflowStore = create((set, get) => ({
         },
       });
     }
+
+    const fullRunStartedAt = fullRun.startedAt ? new Date(fullRun.startedAt).getTime() : Date.now();
+    const fullRunDurationMs = typeof fullRun.durationMs === 'number' ? fullRun.durationMs : 0;
 
     const newNodeStates = {};
     if (Array.isArray(fullRun.nodeExecutions) && fullRun.nodeExecutions.length > 0) {
@@ -477,18 +501,26 @@ export const useWorkflowStore = create((set, get) => ({
           outputs: ne.outputs || {},
           error: ne.error || null,
           durationMs: ne.durationMs || 0,
+          startedAt: ne.startedAt ? new Date(ne.startedAt).getTime() : undefined,
+          completedAt: ne.completedAt ? new Date(ne.completedAt).getTime() : undefined,
           timestamp: ne.completedAt ? new Date(ne.completedAt).getTime() : Date.now(),
         };
       });
     } else if (Array.isArray(fullRun.nodeEvents)) {
       fullRun.nodeEvents.forEach((ev) => {
         if (ev && ev.type === 'node') {
+          const prev = newNodeStates[ev.nodeId];
+          const startedAt = ev.status === 'running'
+            ? ev.timestamp
+            : (prev?.startedAt || (ev.timestamp && typeof ev.durationMs === 'number' ? ev.timestamp - ev.durationMs : undefined));
           newNodeStates[ev.nodeId] = {
             status: ev.status,
             inputs: ev.inputs || {},
             outputs: ev.outputs || {},
             error: ev.error || null,
             durationMs: ev.durationMs || 0,
+            startedAt,
+            completedAt: ev.status !== 'running' ? ev.timestamp : undefined,
             timestamp: ev.timestamp || Date.now(),
           };
         }
@@ -500,6 +532,8 @@ export const useWorkflowStore = create((set, get) => ({
       isHistoryOpen: false,
       nodeStates: newNodeStates,
       runStatus: fullRun.status,
+      runStartedAt: fullRunStartedAt,
+      runDurationMs: fullRunDurationMs,
       runContext: fullRun.runContext || {},
       finalOutput: fullRun.finalOutput || {},
       errorMessage: fullRun.errorSummary || null,
@@ -514,6 +548,8 @@ export const useWorkflowStore = create((set, get) => ({
       cachedLiveState: null,
       nodeStates: cached ? cached.nodeStates : {},
       runStatus: cached ? cached.runStatus : 'idle',
+      runStartedAt: cached ? cached.runStartedAt : null,
+      runDurationMs: cached ? cached.runDurationMs : 0,
       runContext: cached ? cached.runContext : {},
       finalOutput: cached ? cached.finalOutput : {},
       liveLogs: cached ? cached.liveLogs : [],
