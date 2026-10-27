@@ -806,8 +806,8 @@ Use this checklist to ensure all submission requirements are met before the dead
    - Architecture & code walkthrough (1 min)
 3. **Upload Video**: Upload the video to YouTube (as Unlisted or Public) or Google Drive (set access to "Anyone with the link can view").
 4. **Update Placeholders**:
-   - Replace `<DEMO_VIDEO_LINK>` in `README.md`, `docs/SUBMISSION.md`, and `docs/PROJECT_REPORT.md`.
-   - Replace `<STUDENT_NAME>` in `docs/SUBMISSION.md` and `docs/PROJECT_REPORT.md`.
+   - Replace `https://drive.google.com/file/d/1Gom53oHbWXGHqmvgSPUQdTZNHz-D5Ypm/view?usp=sharing` in `README.md`, `docs/SUBMISSION.md`, and `docs/PROJECT_REPORT.md`.
+   - Replace `Aman Narang` in `docs/SUBMISSION.md` and `docs/PROJECT_REPORT.md`.
 5. **Incognito Test**: Open a fresh Incognito/Private browser window and verify:
    - Live frontend loads without login: `https://matter-delta.vercel.app/`
    - Health check returns status ok: `https://matter-api-smno.onrender.com/api/health`
