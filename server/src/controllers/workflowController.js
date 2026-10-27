@@ -3,7 +3,7 @@ import { initSSE } from '../utils/sse.js';
 
 export async function createWorkflow(req, res, next) {
   try {
-    const workflow = await workflowService.createWorkflow(req.body);
+    const workflow = await workflowService.createWorkflow(req.body, req.workspaceId);
     res.status(201).json(workflow);
   } catch (err) {
     next(err);
@@ -12,7 +12,7 @@ export async function createWorkflow(req, res, next) {
 
 export async function listWorkflows(req, res, next) {
   try {
-    const workflows = await workflowService.getAllWorkflows();
+    const workflows = await workflowService.getAllWorkflows(req.workspaceId);
     res.status(200).json(workflows);
   } catch (err) {
     next(err);
@@ -21,7 +21,7 @@ export async function listWorkflows(req, res, next) {
 
 export async function getWorkflow(req, res, next) {
   try {
-    const workflow = await workflowService.getWorkflowById(req.params.id);
+    const workflow = await workflowService.getWorkflowById(req.params.id, req.workspaceId);
     res.status(200).json(workflow);
   } catch (err) {
     next(err);
@@ -30,7 +30,7 @@ export async function getWorkflow(req, res, next) {
 
 export async function updateWorkflow(req, res, next) {
   try {
-    const updated = await workflowService.updateWorkflow(req.params.id, req.body);
+    const updated = await workflowService.updateWorkflow(req.params.id, req.body, req.workspaceId);
     res.status(200).json(updated);
   } catch (err) {
     next(err);
@@ -39,7 +39,7 @@ export async function updateWorkflow(req, res, next) {
 
 export async function deleteWorkflow(req, res, next) {
   try {
-    const result = await workflowService.deleteWorkflow(req.params.id);
+    const result = await workflowService.deleteWorkflow(req.params.id, req.workspaceId);
     res.status(200).json(result);
   } catch (err) {
     next(err);
@@ -50,6 +50,9 @@ export async function executeWorkflow(req, res, next) {
   const isSSE = req.query.stream === 'true' || req.headers.accept?.includes('text/event-stream');
 
   try {
+    // Ensure workflow exists in this workspace first
+    await workflowService.getWorkflowById(req.params.id, req.workspaceId);
+
     const activeRun = await workflowService.getActiveRun(req.params.id);
     if (activeRun) {
       return res.status(409).json({
@@ -69,7 +72,7 @@ export async function executeWorkflow(req, res, next) {
       };
 
       try {
-        await workflowService.executeWorkflow(req.params.id, onEvent);
+        await workflowService.executeWorkflow(req.params.id, req.workspaceId, onEvent);
         sse.sendEvent({}, 'done');
         sse.closeStream();
       } catch (err) {
@@ -83,7 +86,7 @@ export async function executeWorkflow(req, res, next) {
         sse.closeStream();
       }
     } else {
-      const result = await workflowService.executeWorkflow(req.params.id);
+      const result = await workflowService.executeWorkflow(req.params.id, req.workspaceId);
       res.status(200).json(result);
     }
   } catch (err) {
@@ -93,7 +96,7 @@ export async function executeWorkflow(req, res, next) {
 
 export async function getWorkflowRuns(req, res, next) {
   try {
-    const runs = await workflowService.getWorkflowRuns(req.params.id);
+    const runs = await workflowService.getWorkflowRuns(req.params.id, req.workspaceId);
     res.status(200).json(runs);
   } catch (err) {
     next(err);

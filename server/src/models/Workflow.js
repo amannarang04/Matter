@@ -13,6 +13,11 @@ const WorkflowSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    workspaceId: {
+      type: String,
+      required: true,
+      index: true,
+    },
     nodes: {
       type: [mongoose.Schema.Types.Mixed],
       default: [],
@@ -26,5 +31,7 @@ const WorkflowSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+WorkflowSchema.index({ workspaceId: 1, updatedAt: -1 });
 
 export default mongoose.model('Workflow', WorkflowSchema);

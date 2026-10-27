@@ -242,3 +242,12 @@ A node is Skipped when every path that could reach it passes through an unselect
 | `GET` | `/api/runs/:id` | Retrieve run details including individual persisted node executions | `200` | `NOT_FOUND` (404) |
 | `POST` | `/api/runs/:id/retry` | Re-run workflow associated with a past run ID (creates a new run record). Supports synchronous or SSE stream. Rate limited. | `201` (sync) / `200` (SSE) | `NOT_FOUND` (404), `CONCURRENT_RUN_CONFLICT` (409), `RATE_LIMIT_EXCEEDED` (429) |
 
+---
+
+## K. Anonymous Per-Browser Workspaces
+Matter implements client-scoped anonymous workspaces to isolate workflow definitions and run history between browser sessions (e.g., evaluators or incognito windows).
+- **Not Real Authentication**: This mechanism provides per-browser isolation via an anonymous `matter_workspace_id` UUID stored in browser `localStorage`. It is NOT an authentication or security boundary and does not replace user login.
+- **Header**: All `/api/workflows` and `/api/runs` endpoints require the `X-Workspace-Id` request header containing a valid RFC 4122 UUID. Requests missing the header or providing a malformed UUID return HTTP `400 VALIDATION_ERROR`.
+- **Scoping**: Workflows, runs, and node executions are strictly scoped to the provided workspace ID. Resources belonging to another workspace return HTTP `404 NOT_FOUND` to prevent ID probing.
+- **Legacy Records**: Existing database documents created without a `workspaceId` are retained without deletion, but remain omitted from all workspace queries.
+

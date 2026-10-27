@@ -5,9 +5,10 @@ import { ExecutionEngine } from './executionEngine.js';
 import { validateWorkflowDefinition } from '../utils/validator.js';
 import { NotFoundError } from '../utils/errors.js';
 
-export async function createWorkflow(data) {
+export async function createWorkflow(data, workspaceId) {
   validateWorkflowDefinition(data);
   const workflow = new Workflow({
+    workspaceId,
     name: data.name || 'Untitled Workflow',
     description: data.description || '',
     nodes: data.nodes || [],
@@ -16,24 +17,26 @@ export async function createWorkflow(data) {
   return await workflow.save();
 }
 
-export async function getAllWorkflows() {
-  return await Workflow.find().sort({ updatedAt: -1 });
+export async function getAllWorkflows(workspaceId) {
+  const query = workspaceId ? { workspaceId } : {};
+  return await Workflow.find(query).sort({ updatedAt: -1 });
 }
 
-export async function getWorkflowById(id) {
-  const workflow = await Workflow.findById(id);
+export async function getWorkflowById(id, workspaceId) {
+  const query = { _id: id };
+  if (workspaceId) {
+    query.workspaceId = workspaceId;
+  }
+  const workflow = await Workflow.findOne(query);
   if (!workflow) {
     throw new NotFoundError(`Workflow with id ${id} not found`);
   }
   return workflow;
 }
 
-export async function updateWorkflow(id, data) {
+export async function updateWorkflow(id, data, workspaceId) {
   validateWorkflowDefinition(data);
-  const workflow = await Workflow.findById(id);
-  if (!workflow) {
-    throw new NotFoundError(`Workflow with id ${id} not found`);
-  }
+  const workflow = await getWorkflowById(id, workspaceId);
 
   if (data.name !== undefined) workflow.name = data.name;
   if (data.description !== undefined) workflow.description = data.description;
@@ -43,15 +46,13 @@ export async function updateWorkflow(id, data) {
   return await workflow.save();
 }
 
-export async function deleteWorkflow(id) {
-  const workflow = await Workflow.findById(id);
-  if (!workflow) {
-    throw new NotFoundError(`Workflow with id ${id} not found`);
-  }
-  await Workflow.findByIdAndDelete(id);
+export async function deleteWorkflow(id, workspaceId) {
+  const workflow = await getWorkflowById(id, workspaceId);
+  const effectiveWorkspaceId = workflow.workspaceId;
+  await Workflow.deleteOne({ _id: id, workspaceId: effectiveWorkspaceId });
   // Also clean up associated runs and node executions
-  await Run.deleteMany({ workflowId: id });
-  await NodeExecution.deleteMany({ workflowId: id });
+  await Run.deleteMany({ workflowId: id, workspaceId: effectiveWorkspaceId });
+  await NodeExecution.deleteMany({ workflowId: id, workspaceId: effectiveWorkspaceId });
   return { success: true, message: `Workflow ${id} deleted` };
 }
 
@@ -89,8 +90,14 @@ export async function recoverStuckRuns() {
   return { recoveredRuns: runResult.modifiedCount, recoveredNodes: nodeResult.modifiedCount };
 }
 
-export async function executeWorkflow(id, onEventCallback = null, options = {}) {
-  const workflow = await getWorkflowById(id);
+export async function executeWorkflow(id, workspaceId, onEventCallback = null, options = {}) {
+  // If third argument is an options object without callback
+  if (typeof onEventCallback === 'object' && onEventCallback !== null && !options.runId && !options.timeoutMs) {
+    options = onEventCallback;
+    onEventCallback = null;
+  }
+
+  const workflow = await getWorkflowById(id, workspaceId);
   validateWorkflowDefinition(workflow);
 
   // Duplicate-run guard: check if a run is already in progress
@@ -106,6 +113,7 @@ export async function executeWorkflow(id, onEventCallback = null, options = {}) 
   // Initialize Run document
   const run = new Run({
     workflowId: workflow._id,
+    workspaceId: workflow.workspaceId,
     status: 'running',
     startedAt: new Date(),
   });
@@ -160,6 +168,7 @@ export async function executeWorkflow(id, onEventCallback = null, options = {}) 
           result.nodeExecutions.map((ne) => ({
             runId: run._id,
             workflowId: workflow._id,
+            workspaceId: workflow.workspaceId,
             ...ne,
           }))
         );
@@ -184,22 +193,35 @@ export async function executeWorkflow(id, onEventCallback = null, options = {}) 
   };
 }
 
-export async function getWorkflowRuns(workflowId) {
-  return await Run.find({ workflowId }).sort({ startedAt: -1 }).limit(50);
+export async function getWorkflowRuns(workflowId, workspaceId) {
+  await getWorkflowById(workflowId, workspaceId);
+  const query = { workflowId };
+  if (workspaceId) {
+    query.workspaceId = workspaceId;
+  }
+  return await Run.find(query).sort({ startedAt: -1 }).limit(50);
 }
 
-export async function getRunById(runId) {
-  const run = await Run.findById(runId);
+export async function getRunById(runId, workspaceId) {
+  const query = { _id: runId };
+  if (workspaceId) {
+    query.workspaceId = workspaceId;
+  }
+  const run = await Run.findOne(query);
   if (!run) {
     throw new NotFoundError(`Run with id ${runId} not found`);
   }
-  const nodeExecutions = await NodeExecution.find({ runId }).sort({ startedAt: 1 });
+  const nodeExecutionsQuery = { runId };
+  if (workspaceId) {
+    nodeExecutionsQuery.workspaceId = workspaceId;
+  }
+  const nodeExecutions = await NodeExecution.find(nodeExecutionsQuery).sort({ startedAt: 1 });
   const runObj = run.toObject();
   runObj.nodeExecutions = nodeExecutions;
   return runObj;
 }
 
-export async function retryRun(runId, onEventCallback = null) {
-  const previousRun = await getRunById(runId);
-  return await executeWorkflow(previousRun.workflowId, onEventCallback);
+export async function retryRun(runId, workspaceId, onEventCallback = null) {
+  const previousRun = await getRunById(runId, workspaceId);
+  return await executeWorkflow(previousRun.workflowId, workspaceId, onEventCallback);
 }

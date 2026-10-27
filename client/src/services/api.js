@@ -1,7 +1,18 @@
+import { getWorkspaceId } from '../utils/workspace.js';
+
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 
+function getHeaders(extraHeaders = {}) {
+  return {
+    'X-Workspace-Id': getWorkspaceId(),
+    ...extraHeaders,
+  };
+}
+
 export async function fetchWorkflows() {
-  const res = await fetch(`${API_BASE}/api/workflows`);
+  const res = await fetch(`${API_BASE}/api/workflows`, {
+    headers: getHeaders(),
+  });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
     throw new Error(error.error?.message || 'Failed to fetch workflows');
@@ -10,7 +21,9 @@ export async function fetchWorkflows() {
 }
 
 export async function fetchWorkflow(id) {
-  const res = await fetch(`${API_BASE}/api/workflows/${id}`);
+  const res = await fetch(`${API_BASE}/api/workflows/${id}`, {
+    headers: getHeaders(),
+  });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
     throw new Error(error.error?.message || 'Failed to fetch workflow');
@@ -21,7 +34,7 @@ export async function fetchWorkflow(id) {
 export async function createWorkflow(data) {
   const res = await fetch(`${API_BASE}/api/workflows`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -34,7 +47,7 @@ export async function createWorkflow(data) {
 export async function updateWorkflow(id, data) {
   const res = await fetch(`${API_BASE}/api/workflows/${id}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data),
   });
   if (!res.ok) {
@@ -47,6 +60,7 @@ export async function updateWorkflow(id, data) {
 export async function deleteWorkflow(id) {
   const res = await fetch(`${API_BASE}/api/workflows/${id}`, {
     method: 'DELETE',
+    headers: getHeaders(),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
@@ -56,7 +70,9 @@ export async function deleteWorkflow(id) {
 }
 
 export async function fetchWorkflowRuns(workflowId) {
-  const res = await fetch(`${API_BASE}/api/workflows/${workflowId}/runs`);
+  const res = await fetch(`${API_BASE}/api/workflows/${workflowId}/runs`, {
+    headers: getHeaders(),
+  });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
     throw new Error(error.error?.message || 'Failed to fetch runs');
@@ -65,7 +81,9 @@ export async function fetchWorkflowRuns(workflowId) {
 }
 
 export async function fetchRun(runId) {
-  const res = await fetch(`${API_BASE}/api/runs/${runId}`);
+  const res = await fetch(`${API_BASE}/api/runs/${runId}`, {
+    headers: getHeaders(),
+  });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
     throw new Error(error.error?.message || 'Failed to fetch run');
@@ -76,6 +94,7 @@ export async function fetchRun(runId) {
 export async function retryRun(runId) {
   const res = await fetch(`${API_BASE}/api/runs/${runId}/retry`, {
     method: 'POST',
+    headers: getHeaders(),
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
@@ -138,9 +157,9 @@ export async function executeWorkflowStream(workflowId, { onEvent, onDone, onErr
   try {
     const res = await fetch(`${API_BASE}/api/workflows/${workflowId}/execute?stream=true`, {
       method: 'POST',
-      headers: {
+      headers: getHeaders({
         Accept: 'text/event-stream',
-      },
+      }),
     });
 
     if (!res.ok) {

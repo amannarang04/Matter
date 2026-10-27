@@ -14,6 +14,11 @@ const NodeExecutionSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    workspaceId: {
+      type: String,
+      required: true,
+      index: true,
+    },
     nodeId: {
       type: String,
       required: true,
@@ -56,5 +61,8 @@ const NodeExecutionSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+NodeExecutionSchema.index({ workspaceId: 1, runId: 1 });
+NodeExecutionSchema.index({ workspaceId: 1, workflowId: 1 });
 
 export default mongoose.model('NodeExecution', NodeExecutionSchema);

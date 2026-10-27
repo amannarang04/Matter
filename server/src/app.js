@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import mongoose from 'mongoose';
 import workflowRoutes from './routes/workflowRoutes.js';
 import runRoutes from './routes/runRoutes.js';
+import { workspaceMiddleware } from './middleware/workspaceMiddleware.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -31,7 +32,7 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Workspace-Id'],
 };
 
 app.use(cors(corsOptions));
@@ -48,8 +49,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.use('/api/workflows', workflowRoutes);
-app.use('/api/runs', runRoutes);
+app.use('/api/workflows', workspaceMiddleware, workflowRoutes);
+app.use('/api/runs', workspaceMiddleware, runRoutes);
 
 // Error handling middleware
 app.use(errorHandler);

@@ -8,6 +8,11 @@ const RunSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    workspaceId: {
+      type: String,
+      required: true,
+      index: true,
+    },
     status: {
       type: String,
       enum: ['pending', 'running', 'success', 'failed'],
@@ -46,5 +51,8 @@ const RunSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+RunSchema.index({ workspaceId: 1, workflowId: 1, startedAt: -1 });
+RunSchema.index({ workspaceId: 1, status: 1 });
 
 export default mongoose.model('Run', RunSchema);

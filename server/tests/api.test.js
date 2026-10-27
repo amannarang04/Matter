@@ -70,12 +70,46 @@ describe('Workflow API Integration Tests', () => {
     ],
   };
 
+  const workspaceA = 'a0000000-0000-4000-8000-000000000001';
+  const workspaceB = 'b0000000-0000-4000-8000-000000000002';
+  const headersA = { 'Content-Type': 'application/json', 'X-Workspace-Id': workspaceA };
+  const headersB = { 'Content-Type': 'application/json', 'X-Workspace-Id': workspaceB };
+
   let createdWorkflowId;
 
-  it('creates a new workflow', async () => {
+  it('rejects requests missing X-Workspace-Id header with 400 and standard error shape', async () => {
     const res = await fetch(`${baseUrl}/api/workflows`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sampleWorkflow),
+    });
+
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBeDefined();
+    expect(data.error.code).toBe('VALIDATION_ERROR');
+    expect(data.error.message).toContain('X-Workspace-Id');
+    expect(Array.isArray(data.error.details)).toBe(true);
+    expect(data.error.details[0].field).toBe('X-Workspace-Id');
+  });
+
+  it('rejects requests with malformed X-Workspace-Id header with 400', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows`, {
+      method: 'GET',
+      headers: { 'X-Workspace-Id': 'not-a-valid-uuid' },
+    });
+
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toBeDefined();
+    expect(data.error.code).toBe('VALIDATION_ERROR');
+    expect(data.error.message).toContain('X-Workspace-Id');
+  });
+
+  it('creates a new workflow in workspace A', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows`, {
+      method: 'POST',
+      headers: headersA,
       body: JSON.stringify(sampleWorkflow),
     });
 
@@ -83,6 +117,7 @@ describe('Workflow API Integration Tests', () => {
     const data = await res.json();
     expect(data._id).toBeDefined();
     expect(data.name).toBe('Discount Workflow Test');
+    expect(data.workspaceId).toBe(workspaceA);
     createdWorkflowId = data._id;
   });
 
@@ -106,7 +141,7 @@ describe('Workflow API Integration Tests', () => {
 
     const res = await fetch(`${baseUrl}/api/workflows`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headersA,
       body: JSON.stringify(invalidWorkflow),
     });
 
@@ -118,24 +153,57 @@ describe('Workflow API Integration Tests', () => {
     expect(data.error.details.length).toBeGreaterThan(0);
   });
 
-  it('lists workflows', async () => {
-    const res = await fetch(`${baseUrl}/api/workflows`);
+  it('lists workflows in workspace A', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows`, {
+      headers: { 'X-Workspace-Id': workspaceA },
+    });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBeGreaterThanOrEqual(1);
+    expect(data.some((w) => w._id === createdWorkflowId)).toBe(true);
   });
 
-  it('gets a single workflow by ID', async () => {
-    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}`);
+  it('ensures workflow created in workspace A is invisible in workspace B list', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows`, {
+      headers: { 'X-Workspace-Id': workspaceB },
+    });
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(Array.isArray(data)).toBe(true);
+    expect(data.some((w) => w._id === createdWorkflowId)).toBe(false);
+  });
+
+  it('gets a single workflow by ID in workspace A', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}`, {
+      headers: { 'X-Workspace-Id': workspaceA },
+    });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data._id).toBe(createdWorkflowId);
   });
 
-  it('executes a workflow synchronously', async () => {
+  it('returns 404 when trying to get workspace A workflow from workspace B', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}`, {
+      headers: { 'X-Workspace-Id': workspaceB },
+    });
+    expect(res.status).toBe(404);
+    const data = await res.json();
+    expect(data.error.code).toBe('NOT_FOUND');
+  });
+
+  it('returns 404 when trying to execute workspace A workflow from workspace B', async () => {
     const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/execute`, {
       method: 'POST',
+      headers: { 'X-Workspace-Id': workspaceB },
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('executes a workflow synchronously in workspace A', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/execute`, {
+      method: 'POST',
+      headers: { 'X-Workspace-Id': workspaceA },
     });
 
     expect(res.status).toBe(200);
@@ -146,9 +214,13 @@ describe('Workflow API Integration Tests', () => {
     expect(data.nodeEvents.length).toBeGreaterThan(0);
   });
 
-  it('executes a workflow with hardened SSE streaming headers', async () => {
+  it('executes a workflow with hardened SSE streaming headers in workspace A', async () => {
     const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/execute?stream=true`, {
       method: 'POST',
+      headers: {
+        Accept: 'text/event-stream',
+        'X-Workspace-Id': workspaceA,
+      },
     });
 
     expect(res.status).toBe(200);
@@ -162,23 +234,38 @@ describe('Workflow API Integration Tests', () => {
     expect(bodyText).toContain('"type":"node"');
   });
 
-  it('retrieves runs history for a workflow', async () => {
-    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/runs`);
+  it('retrieves runs history for a workflow in workspace A', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/runs`, {
+      headers: { 'X-Workspace-Id': workspaceA },
+    });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(Array.isArray(data)).toBe(true);
     expect(data.length).toBe(2); // One synchronous, one SSE
   });
 
-  it('retrieves run details with persisted node executions linked to the run', async () => {
-    const runsRes = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/runs`);
-    const runs = await runsRes.json();
-    const runId = runs[0]._id;
+  it('returns 404 when retrieving runs history for workspace A workflow from workspace B', async () => {
+    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/runs`, {
+      headers: { 'X-Workspace-Id': workspaceB },
+    });
+    expect(res.status).toBe(404);
+  });
 
-    const res = await fetch(`${baseUrl}/api/runs/${runId}`);
+  let runIdInWorkspaceA;
+
+  it('retrieves run details with persisted node executions in workspace A', async () => {
+    const runsRes = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/runs`, {
+      headers: { 'X-Workspace-Id': workspaceA },
+    });
+    const runs = await runsRes.json();
+    runIdInWorkspaceA = runs[0]._id;
+
+    const res = await fetch(`${baseUrl}/api/runs/${runIdInWorkspaceA}`, {
+      headers: { 'X-Workspace-Id': workspaceA },
+    });
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data._id).toBe(runId);
+    expect(data._id).toBe(runIdInWorkspaceA);
     expect(data.status).toBe('success');
     expect(Array.isArray(data.nodeExecutions)).toBe(true);
     expect(data.nodeExecutions.length).toBeGreaterThan(0);
@@ -190,21 +277,38 @@ describe('Workflow API Integration Tests', () => {
     expect(firstNode.completedAt).toBeDefined();
   });
 
-  it('retries a run creating a new run via POST /api/runs/:id/retry', async () => {
-    const runsRes = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/runs`);
-    const runs = await runsRes.json();
-    const runId = runs[0]._id;
+  it('returns 404 when trying to access workspace A run from workspace B', async () => {
+    const res = await fetch(`${baseUrl}/api/runs/${runIdInWorkspaceA}`, {
+      headers: { 'X-Workspace-Id': workspaceB },
+    });
+    expect(res.status).toBe(404);
+  });
 
-    const res = await fetch(`${baseUrl}/api/runs/${runId}/retry`, { method: 'POST' });
+  it('returns 404 when trying to retry workspace A run from workspace B', async () => {
+    const res = await fetch(`${baseUrl}/api/runs/${runIdInWorkspaceA}/retry`, {
+      method: 'POST',
+      headers: { 'X-Workspace-Id': workspaceB },
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('retries a run creating a new run via POST /api/runs/:id/retry in workspace A', async () => {
+    const res = await fetch(`${baseUrl}/api/runs/${runIdInWorkspaceA}/retry`, {
+      method: 'POST',
+      headers: { 'X-Workspace-Id': workspaceA },
+    });
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.runId).toBeDefined();
-    expect(data.runId).not.toBe(runId);
+    expect(data.runId).not.toBe(runIdInWorkspaceA);
     expect(data.status).toBe('success');
   });
 
   it('allows starting a run via POST /api/workflows/:id/run alias', async () => {
-    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/run`, { method: 'POST' });
+    const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/run`, {
+      method: 'POST',
+      headers: { 'X-Workspace-Id': workspaceA },
+    });
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.status).toBe('success');
@@ -230,7 +334,7 @@ describe('Workflow API Integration Tests', () => {
 
     const res = await fetch(`${baseUrl}/api/workflows`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headersA,
       body: JSON.stringify(workflowWithoutInput),
     });
 
@@ -241,10 +345,10 @@ describe('Workflow API Integration Tests', () => {
   });
 
   it('returns 409 CONCURRENT_RUN_CONFLICT when a run is already in progress', async () => {
-    // Import Run model to simulate an active run
     const RunModel = mongoose.model('Run');
     const activeRun = await RunModel.create({
       workflowId: createdWorkflowId,
+      workspaceId: workspaceA,
       status: 'running',
       startedAt: new Date(),
     });
@@ -252,6 +356,7 @@ describe('Workflow API Integration Tests', () => {
     try {
       const res = await fetch(`${baseUrl}/api/workflows/${createdWorkflowId}/run`, {
         method: 'POST',
+        headers: { 'X-Workspace-Id': workspaceA },
       });
 
       expect(res.status).toBe(409);
@@ -260,7 +365,6 @@ describe('Workflow API Integration Tests', () => {
       expect(data.error.message).toContain(activeRun._id.toString());
       expect(data.error.details[0].activeRunId).toBe(activeRun._id.toString());
     } finally {
-      // Clean up the active run to release the guard for other tests
       await RunModel.findByIdAndDelete(activeRun._id);
     }
   });
@@ -271,6 +375,7 @@ describe('Workflow API Integration Tests', () => {
 
     const stuckRun = await RunModel.create({
       workflowId: createdWorkflowId,
+      workspaceId: workspaceA,
       status: 'running',
       startedAt: new Date(Date.now() - 60000),
     });
@@ -278,6 +383,7 @@ describe('Workflow API Integration Tests', () => {
     const stuckNode = await NodeExecutionModel.create({
       runId: stuckRun._id,
       workflowId: createdWorkflowId,
+      workspaceId: workspaceA,
       nodeId: 'node-delay-test',
       nodeType: 'delay',
       status: 'running',
@@ -300,9 +406,9 @@ describe('Workflow API Integration Tests', () => {
   });
 
   it('handles execution timeout in finally block and releases concurrent run guard', async () => {
-    // Create a workflow with a delay node
     const timeoutWorkflow = await Workflow.create({
       name: 'Timeout Test Workflow',
+      workspaceId: workspaceA,
       nodes: [
         {
           id: 'n-in',
@@ -326,20 +432,18 @@ describe('Workflow API Integration Tests', () => {
       ],
     });
 
-    // Execute with a short timeout (50ms)
-    const result = await executeWorkflow(timeoutWorkflow._id, null, { timeoutMs: 50 });
+    const result = await executeWorkflow(timeoutWorkflow._id, workspaceA, null, { timeoutMs: 50 });
     expect(result.status).toBe('failed');
     expect(result.errorSummary).toContain('timed out after 50ms');
 
-    // Verify Run record was finalized with completedAt
     const RunModel = mongoose.model('Run');
     const savedRun = await RunModel.findById(result.runId);
     expect(savedRun.status).toBe('failed');
     expect(savedRun.completedAt).toBeDefined();
 
-    // Verify duplicate-run guard is released by immediately running again without 409
-    const secondRun = await executeWorkflow(timeoutWorkflow._id, null, { timeoutMs: 2000 });
+    const secondRun = await executeWorkflow(timeoutWorkflow._id, workspaceA, null, { timeoutMs: 2000 });
     expect(secondRun.status).toBe('success');
   });
 });
+
 

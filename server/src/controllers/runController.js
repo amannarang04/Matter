@@ -3,7 +3,7 @@ import { initSSE } from '../utils/sse.js';
 
 export async function getRun(req, res, next) {
   try {
-    const run = await workflowService.getRunById(req.params.id);
+    const run = await workflowService.getRunById(req.params.id, req.workspaceId);
     res.status(200).json(run);
   } catch (err) {
     next(err);
@@ -14,7 +14,7 @@ export async function retryRun(req, res, next) {
   const isSSE = req.query.stream === 'true' || req.headers.accept?.includes('text/event-stream');
 
   try {
-    const previousRun = await workflowService.getRunById(req.params.id);
+    const previousRun = await workflowService.getRunById(req.params.id, req.workspaceId);
     const activeRun = await workflowService.getActiveRun(previousRun.workflowId);
     if (activeRun) {
       return res.status(409).json({
@@ -34,7 +34,7 @@ export async function retryRun(req, res, next) {
       };
 
       try {
-        await workflowService.retryRun(req.params.id, onEvent);
+        await workflowService.retryRun(req.params.id, req.workspaceId, onEvent);
         sse.sendEvent({}, 'done');
         sse.closeStream();
       } catch (err) {
@@ -48,7 +48,7 @@ export async function retryRun(req, res, next) {
         sse.closeStream();
       }
     } else {
-      const result = await workflowService.retryRun(req.params.id);
+      const result = await workflowService.retryRun(req.params.id, req.workspaceId);
       res.status(201).json(result);
     }
   } catch (err) {

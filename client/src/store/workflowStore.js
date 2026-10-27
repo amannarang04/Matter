@@ -9,6 +9,30 @@ import { TEMPLATES } from '../utils/templates.js';
 
 const DEFAULT_WORKFLOW = TEMPLATES[0];
 
+function getStoredLastWorkflowId() {
+  try {
+    return localStorage.getItem('matter_last_workflow_id');
+  } catch {
+    return null;
+  }
+}
+
+function setStoredLastWorkflowId(id) {
+  try {
+    localStorage.setItem('matter_last_workflow_id', id);
+  } catch {
+    // ignore
+  }
+}
+
+function removeStoredLastWorkflowId() {
+  try {
+    localStorage.removeItem('matter_last_workflow_id');
+  } catch {
+    // ignore
+  }
+}
+
 export const useWorkflowStore = create((set, get) => ({
   workflowId: null,
   name: DEFAULT_WORKFLOW.name,
@@ -208,7 +232,7 @@ export const useWorkflowStore = create((set, get) => ({
 
   loadWorkflow: (workflow) => {
     if (workflow._id) {
-      localStorage.setItem('matter_last_workflow_id', workflow._id);
+      setStoredLastWorkflowId(workflow._id);
     }
     set({
       workflowId: workflow._id,
@@ -235,7 +259,7 @@ export const useWorkflowStore = create((set, get) => ({
     if (!workflowId) return;
     try {
       await api.deleteWorkflow(workflowId);
-      localStorage.removeItem('matter_last_workflow_id');
+      removeStoredLastWorkflowId();
       const list = await get().fetchWorkflowsList();
       if (list.length > 0) {
         get().loadWorkflow(list[0]);
@@ -283,7 +307,7 @@ export const useWorkflowStore = create((set, get) => ({
       return;
     }
 
-    const lastId = localStorage.getItem('matter_last_workflow_id');
+    const lastId = getStoredLastWorkflowId();
     if (lastId) {
       const match = list.find((w) => w._id === lastId);
       if (match) {
@@ -297,7 +321,7 @@ export const useWorkflowStore = create((set, get) => ({
           return;
         }
       } catch {
-        localStorage.removeItem('matter_last_workflow_id');
+        removeStoredLastWorkflowId();
       }
     }
     if (list.length > 0) {
@@ -328,7 +352,7 @@ export const useWorkflowStore = create((set, get) => ({
       } else {
         saved = await api.createWorkflow({ name, description, nodes, edges });
       }
-      localStorage.setItem('matter_last_workflow_id', saved._id);
+      setStoredLastWorkflowId(saved._id);
       set({
         workflowId: saved._id,
         isSaving: false,
