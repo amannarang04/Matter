@@ -52,6 +52,9 @@ export const useWorkflowStore = create((set, get) => ({
   isHistoryOpen: false,
   isHistoryLoading: false,
   historyError: null,
+  hasMoreRuns: false,
+  isHistoryLoadingMore: false,
+  loadMoreError: null,
   runsList: [],
   allWorkflows: [],
   errorMessage: null,
@@ -560,13 +563,47 @@ export const useWorkflowStore = create((set, get) => ({
   loadRuns: async () => {
     const id = get().workflowId;
     if (!id) return;
-    set({ isHistoryLoading: true, historyError: null });
+    set({ isHistoryLoading: true, historyError: null, hasMoreRuns: false, loadMoreError: null });
     try {
-      const runs = await api.fetchWorkflowRuns(id);
-      set({ runsList: runs, isHistoryLoading: false, historyError: null });
+      const runs = await api.fetchWorkflowRuns(id, { limit: 50 });
+      set({
+        runsList: runs,
+        hasMoreRuns: Array.isArray(runs) && runs.length === 50,
+        isHistoryLoading: false,
+        historyError: null,
+      });
     } catch (err) {
       console.error('Failed to load runs:', err);
       set({ isHistoryLoading: false, historyError: err.message || 'Failed to load run history' });
+    }
+  },
+
+  loadMoreRuns: async () => {
+    const { workflowId, runsList, isHistoryLoadingMore } = get();
+    if (!workflowId || isHistoryLoadingMore || runsList.length === 0) return;
+
+    const oldestRun = runsList[runsList.length - 1];
+    if (!oldestRun?.startedAt) return;
+
+    set({ isHistoryLoadingMore: true, loadMoreError: null });
+    try {
+      const moreRuns = await api.fetchWorkflowRuns(workflowId, {
+        limit: 50,
+        before: oldestRun.startedAt,
+      });
+
+      set({
+        runsList: [...runsList, ...moreRuns],
+        hasMoreRuns: Array.isArray(moreRuns) && moreRuns.length === 50,
+        isHistoryLoadingMore: false,
+        loadMoreError: null,
+      });
+    } catch (err) {
+      console.error('Failed to load more runs:', err);
+      set({
+        isHistoryLoadingMore: false,
+        loadMoreError: err.message || 'Failed to load more runs',
+      });
     }
   },
 

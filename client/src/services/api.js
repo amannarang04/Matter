@@ -89,8 +89,13 @@ export async function deleteWorkflow(id) {
   return res.json();
 }
 
-export async function fetchWorkflowRuns(workflowId) {
-  const res = await fetch(`${API_BASE}/api/workflows/${workflowId}/runs`, {
+export async function fetchWorkflowRuns(workflowId, { limit, before } = {}) {
+  const params = new URLSearchParams();
+  if (limit !== undefined) params.append('limit', limit);
+  if (before !== undefined) params.append('before', before);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  const res = await fetch(`${API_BASE}/api/workflows/${workflowId}/runs${qs}`, {
     headers: getHeaders(),
   });
   if (!res.ok) {

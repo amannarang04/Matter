@@ -3,7 +3,7 @@ import Run from '../models/Run.js';
 import NodeExecution from '../models/NodeExecution.js';
 import { ExecutionEngine } from './executionEngine.js';
 import { validateWorkflowDefinition } from '../utils/validator.js';
-import { NotFoundError } from '../utils/errors.js';
+import { NotFoundError, ValidationError } from '../utils/errors.js';
 
 export async function createWorkflow(data, workspaceId) {
   validateWorkflowDefinition(data);
@@ -193,13 +193,45 @@ export async function executeWorkflow(id, workspaceId, onEventCallback = null, o
   };
 }
 
-export async function getWorkflowRuns(workflowId, workspaceId) {
+export async function getWorkflowRuns(workflowId, workspaceId, options = {}) {
   await getWorkflowById(workflowId, workspaceId);
+
+  let limit = 50;
+  if (options.limit !== undefined) {
+    const parsedLimit = Number(options.limit);
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
+      throw new ValidationError('Query parameter "limit" must be an integer between 1 and 100', [
+        { field: 'limit', message: 'limit must be an integer between 1 and 100' },
+      ]);
+    }
+    limit = parsedLimit;
+  }
+
+  let beforeDate = null;
+  if (options.before !== undefined) {
+    if (typeof options.before !== 'string' || !options.before.trim()) {
+      throw new ValidationError('Query parameter "before" must be a valid ISO timestamp', [
+        { field: 'before', message: 'before must be a valid ISO timestamp' },
+      ]);
+    }
+    const parsedDate = new Date(options.before);
+    if (isNaN(parsedDate.getTime())) {
+      throw new ValidationError('Query parameter "before" must be a valid ISO timestamp', [
+        { field: 'before', message: 'before must be a valid ISO timestamp' },
+      ]);
+    }
+    beforeDate = parsedDate;
+  }
+
   const query = { workflowId };
   if (workspaceId) {
     query.workspaceId = workspaceId;
   }
-  return await Run.find(query).sort({ startedAt: -1 }).limit(50);
+  if (beforeDate) {
+    query.startedAt = { $lt: beforeDate };
+  }
+
+  return await Run.find(query).sort({ startedAt: -1 }).limit(limit);
 }
 
 export async function getRunById(runId, workspaceId) {

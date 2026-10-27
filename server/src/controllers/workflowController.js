@@ -96,7 +96,7 @@ export async function executeWorkflow(req, res, next) {
 
 export async function getWorkflowRuns(req, res, next) {
   try {
-    const runs = await workflowService.getWorkflowRuns(req.params.id, req.workspaceId);
+    const runs = await workflowService.getWorkflowRuns(req.params.id, req.workspaceId, req.query);
     res.status(200).json(runs);
   } catch (err) {
     next(err);

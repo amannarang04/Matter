@@ -11,6 +11,10 @@ export default function RunHistoryModal() {
     isHistoryLoading,
     historyError,
     loadRuns,
+    hasMoreRuns,
+    isHistoryLoadingMore,
+    loadMoreError,
+    loadMoreRuns,
   } = useWorkflowStore();
   const [selectedRun, setSelectedRun] = useState(null);
 
@@ -60,50 +64,76 @@ export default function RunHistoryModal() {
                 No past runs recorded for this workflow yet.
               </p>
             ) : (
-              runsList.map((run) => {
-                const date = new Date(run.startedAt).toLocaleString();
-                const isSelected = selectedRun?._id === run._id;
+              <>
+                {runsList.map((run) => {
+                  const date = new Date(run.startedAt).toLocaleString();
+                  const isSelected = selectedRun?._id === run._id;
 
-                return (
-                  <div
-                    key={run._id}
-                    onClick={() => setSelectedRun(run)}
-                    className={`w-full text-left p-3 rounded-xl border transition flex flex-col gap-1.5 cursor-pointer ${
-                      isSelected
-                        ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200'
-                        : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:bg-slate-850 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          run.status === 'success'
-                            ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
-                            : 'bg-rose-950/80 text-rose-400 border border-rose-800/80'
-                        }`}
+                  return (
+                    <div
+                      key={run._id}
+                      onClick={() => setSelectedRun(run)}
+                      className={`w-full text-left p-3 rounded-xl border transition flex flex-col gap-1.5 cursor-pointer ${
+                        isSelected
+                          ? 'bg-indigo-950/40 border-indigo-500/50 text-indigo-200'
+                          : 'bg-slate-900/60 border-slate-800/80 text-slate-300 hover:bg-slate-850 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            run.status === 'success'
+                              ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
+                              : 'bg-rose-950/80 text-rose-400 border border-rose-800/80'
+                          }`}
+                        >
+                          {run.status}
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400">{run.durationMs}ms</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <Calendar className="w-3 h-3 text-slate-500" />
+                        <span className="truncate">{date}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          replayRun(run);
+                        }}
+                        className="mt-1 flex items-center justify-center gap-1.5 w-full py-1 rounded bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-semibold transition shadow-sm"
                       >
-                        {run.status}
-                      </span>
-                      <span className="text-[11px] font-mono text-slate-400">{run.durationMs}ms</span>
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View on canvas</span>
+                      </button>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                      <Calendar className="w-3 h-3 text-slate-500" />
-                      <span className="truncate">{date}</span>
-                    </div>
+                  );
+                })}
+
+                {/* Load More Button when page limit was returned */}
+                {hasMoreRuns && (
+                  <div className="pt-2 pb-1 text-center">
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        replayRun(run);
-                      }}
-                      className="mt-1 flex items-center justify-center gap-1.5 w-full py-1 rounded bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-semibold transition shadow-sm"
+                      onClick={loadMoreRuns}
+                      disabled={isHistoryLoadingMore}
+                      className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700/80 text-xs font-semibold text-indigo-300 hover:text-indigo-200 transition disabled:opacity-50 shadow-sm"
                     >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>View on canvas</span>
+                      {isHistoryLoadingMore ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Loading older runs...</span>
+                        </>
+                      ) : (
+                        <span>Load more</span>
+                      )}
                     </button>
+                    {loadMoreError && (
+                      <p className="text-[11px] text-rose-400 mt-1.5 font-medium">{loadMoreError}</p>
+                    )}
                   </div>
-                );
-              })
+                )}
+              </>
             )}
           </div>
 
