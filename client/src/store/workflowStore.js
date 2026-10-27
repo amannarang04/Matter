@@ -98,7 +98,14 @@ export const useWorkflowStore = create((set, get) => ({
     });
   },
 
-  setSelectedNodeId: (id) => set({ selectedNodeId: id }),
+  setSelectedNodeId: (id) =>
+    set({
+      selectedNodeId: id,
+      nodes: get().nodes.map((n) => ({
+        ...n,
+        selected: n.id === id,
+      })),
+    }),
 
   updateNodeData: (id, partialData) => {
     set({
@@ -558,6 +565,17 @@ export const useWorkflowStore = create((set, get) => ({
       liveLogs: cached ? cached.liveLogs : [],
       errorMessage: cached ? cached.errorMessage : null,
     });
+  },
+
+  retryHistoricalRun: async (run) => {
+    set({ isHistoryOpen: false });
+    if (get().replayingRun) {
+      set({ replayingRun: null, cachedLiveState: null });
+    }
+    if (run?.workflowId && run.workflowId !== get().workflowId) {
+      await get().loadWorkflow(run.workflowId);
+    }
+    await get().runWorkflow();
   },
 
   loadRuns: async () => {

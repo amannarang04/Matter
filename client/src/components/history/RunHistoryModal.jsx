@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
-import { X, Clock, Calendar, Eye, Loader2, RefreshCw, AlertCircle } from 'lucide-react';
+import { X, Clock, Calendar, Eye, Loader2, RefreshCw, AlertCircle, Play } from 'lucide-react';
 
 export default function RunHistoryModal() {
   const {
@@ -8,6 +8,7 @@ export default function RunHistoryModal() {
     closeHistory,
     runsList,
     replayRun,
+    retryHistoricalRun,
     isHistoryLoading,
     historyError,
     loadRuns,
@@ -95,17 +96,31 @@ export default function RunHistoryModal() {
                         <Calendar className="w-3 h-3 text-slate-500" />
                         <span className="truncate">{date}</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          replayRun(run);
-                        }}
-                        className="mt-1 flex items-center justify-center gap-1.5 w-full py-1 rounded bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-semibold transition shadow-sm"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View on canvas</span>
-                      </button>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            replayRun(run);
+                          }}
+                          className="flex items-center justify-center gap-1.5 flex-1 py-1 rounded bg-indigo-600/80 hover:bg-indigo-600 text-white text-[11px] font-semibold transition shadow-sm"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View on canvas</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            retryHistoricalRun(run);
+                          }}
+                          className="flex items-center justify-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-300 hover:text-white text-[11px] font-semibold transition shadow-sm"
+                          title="Rerun this workflow"
+                        >
+                          <Play className="w-3 h-3 text-emerald-400 fill-current" />
+                          <span>Rerun</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -146,14 +161,24 @@ export default function RunHistoryModal() {
                     <h3 className="text-sm font-semibold text-slate-300">Execution Summary</h3>
                     <span className="text-xs text-slate-500 font-mono">{selectedRun._id}</span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => replayRun(selectedRun)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition"
-                  >
-                    <Eye className="w-4 h-4" />
-                    <span>View on canvas</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => replayRun(selectedRun)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>View on canvas</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => retryHistoricalRun(selectedRun)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md transition"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Rerun this run</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3 text-xs">
                     <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">

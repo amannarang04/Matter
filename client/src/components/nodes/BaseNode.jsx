@@ -11,6 +11,8 @@ export default function BaseNode({
   children,
 }) {
   const nodeState = useWorkflowStore((state) => state.nodeStates[id]);
+  const selectedNodeId = useWorkflowStore((state) => state.selectedNodeId);
+  const isSelected = selected || selectedNodeId === id;
   const status = nodeState?.status || 'idle';
 
   let statusBorder = 'border-slate-800 hover:border-slate-700';
@@ -63,7 +65,7 @@ export default function BaseNode({
   return (
     <div
       className={`min-w-[240px] max-w-[320px] rounded-xl bg-slate-900/95 backdrop-blur-md border text-slate-100 transition-all duration-200 select-none shadow-xl ${statusBorder} ${
-        selected ? 'ring-2 ring-indigo-500 outline-none' : ''
+        isSelected ? 'ring-2 ring-indigo-400 ring-offset-2 ring-offset-slate-950 outline-none shadow-indigo-500/30' : ''
       }`}
     >
       {/* Node Header */}
