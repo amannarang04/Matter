@@ -13,7 +13,7 @@ Matter
 
 ### Student Name
 ```text
-<STUDENT_NAME>
+Aman Narang
 ```
 
 ### Problem Statement
@@ -38,7 +38,7 @@ https://matter-api-smno.onrender.com/api/health
 
 ### Demo Video Link
 ```text
-<DEMO_VIDEO_LINK>
+https://drive.google.com/file/d/1Gom53oHbWXGHqmvgSPUQdTZNHz-D5Ypm/view?usp=sharing
 ```
 
 ### Tech Stack
@@ -72,6 +72,6 @@ Based on official evaluation guidelines:
 - [x] **Comprehensive README**: Includes problem, architecture diagram, 60-second walkthrough, real endpoint schemas, models, and honest limitation disclosures.
 - [x] **Architecture Documented**: High-level flow, component roles, Kahn's algorithm execution model, and data schemas thoroughly explained.
 - [x] **Deployed Environment**: Frontend live on Vercel (`https://matter-delta.vercel.app/`), backend live on Render (`https://matter-api-smno.onrender.com`), database on MongoDB Atlas.
-- [ ] **Demo Video Accessible**: 4 to 5 minute walkthrough video recorded, uploaded, and link verified (`<DEMO_VIDEO_LINK>`).
+- [x] **Demo Video Accessible**: 4 to 5 minute walkthrough video recorded, uploaded, and link verified ([Google Drive](https://drive.google.com/file/d/1Gom53oHbWXGHqmvgSPUQdTZNHz-D5Ypm/view?usp=sharing)).
 - [ ] **Incognito Link Verification**: Tested frontend, backend health check, and demo video in a fresh incognito browser window without login prompts.
 - [ ] **Submission Submitted On Time**: Form submitted before deadline (**27 Oct 2026, 11:59 PM IST**).

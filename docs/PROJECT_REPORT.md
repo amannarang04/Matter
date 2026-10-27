@@ -5,8 +5,8 @@
 > **Live Frontend**: [https://matter-delta.vercel.app/](https://matter-delta.vercel.app/)  
 > **Live Backend API**: [https://matter-api-smno.onrender.com](https://matter-api-smno.onrender.com)  
 > **Health Check**: [https://matter-api-smno.onrender.com/api/health](https://matter-api-smno.onrender.com/api/health)  
-> **Demo Video Link**: `<DEMO_VIDEO_LINK>`  
-> **Student Name**: `<STUDENT_NAME>`  
+> **Demo Video Link**: [Google Drive Demo](https://drive.google.com/file/d/1Gom53oHbWXGHqmvgSPUQdTZNHz-D5Ypm/view?usp=sharing)  
+> **Student Name**: Aman Narang  
 
 ---
 
@@ -789,16 +789,16 @@ Use this checklist to ensure all submission requirements are met before the dead
 | **All 27 Tests Passing** | **DONE** | Verified via `npm test` in `server/` |
 | **No Committed Secrets** | **DONE** | Verified `.env` is git-ignored and no tokens are in source code |
 | **Git Working Tree Clean** | **DONE** | Verified via `git status` |
-| **Student Name Placeholder** | **NEEDS ACTION** | Replace `<STUDENT_NAME>` in `docs/SUBMISSION.md` and this report |
-| **Demo Video Link Placeholder** | **NEEDS ACTION** | Replace `<DEMO_VIDEO_LINK>` in README, SUBMISSION, and this report |
-| **Record 4–5 Min Walkthrough** | **PENDING** | Follow the verified script in `docs/DEMO_SCRIPT.md` |
+| **Student Name Placeholder** | **DONE** | Filled as `Aman Narang` across all submission documents |
+| **Demo Video Link Placeholder** | **DONE** | Updated with Google Drive link in README, SUBMISSION, and report |
+| **Record 4–5 Min Walkthrough** | **DONE** | Walkthrough demo recorded and uploaded to Google Drive |
 | **Incognito Verification** | **PENDING** | Open all URLs in a clean incognito window without account logins |
 | **Portal Form Submission** | **PENDING** | Submit before **27 Oct 2026, 11:59 PM IST** |
 
 ### Step-by-Step Instructions to Submit
 
 1. **Pre-Warm Backend**: Open `https://matter-api-smno.onrender.com/api/health` in your browser 60 seconds before recording your demo video.
-2. **Record Demo Video**: Open the live studio at `https://matter-delta.vercel.app/`. Follow the exact 5-minute script outlined in `docs/DEMO_SCRIPT.md`:
+2. **Record Demo Video**: Open the live studio at `https://matter-delta.vercel.app/`. Follow the structured 5-minute walkthrough:
    - Canvas & templates (1 min)
    - Running the Discount Workflow with live SSE logs (1 min)
    - Inducing a division by zero error & demonstrating "Fix and rerun" (1 min)

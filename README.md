@@ -7,12 +7,12 @@ Matter is a visual programming environment paired with a real backend execution 
 [![Live Frontend](https://img.shields.io/badge/Frontend-Vercel-black?style=flat&logo=vercel)](https://matter-delta.vercel.app/)
 [![Live Backend API](https://img.shields.io/badge/Backend-Render-46E3B7?style=flat&logo=render)](https://matter-api-smno.onrender.com/api/health)
 [![GitHub Repository](https://img.shields.io/badge/GitHub-Matter-blue?style=flat&logo=github)](https://github.com/amannarang04/Matter)
-[![Demo Video](https://img.shields.io/badge/Demo_Video-YouTube-red?style=flat&logo=youtube)](<DEMO_VIDEO_LINK>)
+[![Demo Video](https://img.shields.io/badge/Demo_Video-Google_Drive-4285F4?style=flat&logo=googledrive)](https://drive.google.com/file/d/1Gom53oHbWXGHqmvgSPUQdTZNHz-D5Ypm/view?usp=sharing)
 
 - **Live Frontend Studio**: [https://matter-delta.vercel.app/](https://matter-delta.vercel.app/)
 - **Live Backend API Health**: [https://matter-api-smno.onrender.com/api/health](https://matter-api-smno.onrender.com/api/health)
 - **GitHub Repository**: [https://github.com/amannarang04/Matter](https://github.com/amannarang04/Matter)
-- **Walkthrough Demo Video**: [<DEMO_VIDEO_LINK>](<DEMO_VIDEO_LINK>)
+- **Walkthrough Demo Video**: [Watch Demo Video (Google Drive)](https://drive.google.com/file/d/1Gom53oHbWXGHqmvgSPUQdTZNHz-D5Ypm/view?usp=sharing)
 
 ---
 
@@ -225,8 +225,8 @@ matter/
 │   └── vite.config.js          # Vite build & Tailwind CSS plugin configuration
 ├── docs/                       # Project specifications & operational guides
 │   ├── CONTRACT.md             # Data contract, schemas, & REST API specifications
-│   ├── DEMO_SCRIPT.md          # 4-minute video presentation script
 │   ├── DEPLOY.md               # Step-by-step Atlas, Render, & Vercel deployment guide
+│   ├── PROJECT_REPORT.md       # Comprehensive evaluation & architecture defense report
 │   └── SUBMISSION.md           # Submission details & guidelines checklist
 ├── server/                     # Backend API & Execution Engine
 │   ├── src/
