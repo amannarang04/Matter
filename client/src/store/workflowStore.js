@@ -563,12 +563,13 @@ export const useWorkflowStore = create((set, get) => ({
   loadRuns: async () => {
     const id = get().workflowId;
     if (!id) return;
+    const PAGE_LIMIT = 2; // set to 2 to verify "Load more" pagination with 3+ runs
     set({ isHistoryLoading: true, historyError: null, hasMoreRuns: false, loadMoreError: null });
     try {
-      const runs = await api.fetchWorkflowRuns(id, { limit: 50 });
+      const runs = await api.fetchWorkflowRuns(id, { limit: PAGE_LIMIT });
       set({
         runsList: runs,
-        hasMoreRuns: Array.isArray(runs) && runs.length === 50,
+        hasMoreRuns: Array.isArray(runs) && runs.length === PAGE_LIMIT,
         isHistoryLoading: false,
         historyError: null,
       });
@@ -582,19 +583,20 @@ export const useWorkflowStore = create((set, get) => ({
     const { workflowId, runsList, isHistoryLoadingMore } = get();
     if (!workflowId || isHistoryLoadingMore || runsList.length === 0) return;
 
+    const PAGE_LIMIT = 2;
     const oldestRun = runsList[runsList.length - 1];
     if (!oldestRun?.startedAt) return;
 
     set({ isHistoryLoadingMore: true, loadMoreError: null });
     try {
       const moreRuns = await api.fetchWorkflowRuns(workflowId, {
-        limit: 50,
+        limit: PAGE_LIMIT,
         before: oldestRun.startedAt,
       });
 
       set({
         runsList: [...runsList, ...moreRuns],
-        hasMoreRuns: Array.isArray(moreRuns) && moreRuns.length === 50,
+        hasMoreRuns: Array.isArray(moreRuns) && moreRuns.length === PAGE_LIMIT,
         isHistoryLoadingMore: false,
         loadMoreError: null,
       });
