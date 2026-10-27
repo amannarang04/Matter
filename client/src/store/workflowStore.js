@@ -578,4 +578,5 @@ export const useWorkflowStore = create((set, get) => ({
   closeHistory: () => set({ isHistoryOpen: false }),
 
   setActiveBottomTab: (tab) => set({ activeBottomTab: tab }),
+  setErrorMessage: (msg) => set({ errorMessage: msg }),
 }));

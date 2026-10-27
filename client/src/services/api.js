@@ -39,7 +39,17 @@ export async function createWorkflow(data) {
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.error?.message || 'Failed to create workflow');
+    let msg = error.error?.message || 'Failed to create workflow';
+    if (Array.isArray(error.error?.details) && error.error.details.length > 0) {
+      const detailsList = error.error.details
+        .map((d) => (d.message ? d.message : `${d.nodeId ? `Node "${d.nodeId}": ` : ''}${d.field}: invalid`))
+        .join('; ');
+      msg = `${msg}: ${detailsList}`;
+    }
+    const err = new Error(msg);
+    err.details = error.error?.details;
+    err.code = error.error?.code;
+    throw err;
   }
   return res.json();
 }
@@ -52,7 +62,17 @@ export async function updateWorkflow(id, data) {
   });
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
-    throw new Error(error.error?.message || 'Failed to update workflow');
+    let msg = error.error?.message || 'Failed to update workflow';
+    if (Array.isArray(error.error?.details) && error.error.details.length > 0) {
+      const detailsList = error.error.details
+        .map((d) => (d.message ? d.message : `${d.nodeId ? `Node "${d.nodeId}": ` : ''}${d.field}: invalid`))
+        .join('; ');
+      msg = `${msg}: ${detailsList}`;
+    }
+    const err = new Error(msg);
+    err.details = error.error?.details;
+    err.code = error.error?.code;
+    throw err;
   }
   return res.json();
 }
