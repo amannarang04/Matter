@@ -1,9 +1,10 @@
 import { EventEmitter } from 'events';
-import { ExecutionError } from '../utils/errors.js';
+import { ExecutionError, formatNodeError, getNodeLabel } from '../utils/errors.js';
 
-export function resolveOperand(operand, context) {
+export function resolveOperand(operand, context, node = null) {
   if (!operand || typeof operand !== 'object') {
-    throw new ExecutionError(`Invalid operand: ${JSON.stringify(operand)}`);
+    const reason = `invalid operand: ${JSON.stringify(operand)}`;
+    throw new ExecutionError(node ? formatNodeError(node, reason) : `Invalid operand: ${JSON.stringify(operand)}`);
   }
 
   if (operand.source === 'literal') {
@@ -12,12 +13,14 @@ export function resolveOperand(operand, context) {
 
   if (operand.source === 'ref') {
     if (!Object.prototype.hasOwnProperty.call(context, operand.key)) {
-      throw new ExecutionError(`Context reference key "${operand.key}" not found in run context`);
+      const reason = `context reference key "${operand.key}" not found in run context`;
+      throw new ExecutionError(node ? formatNodeError(node, reason) : `Context reference key "${operand.key}" not found in run context`);
     }
     return context[operand.key];
   }
 
-  throw new ExecutionError(`Unknown operand source: "${operand.source}"`);
+  const reason = `unknown operand source: "${operand.source}"`;
+  throw new ExecutionError(node ? formatNodeError(node, reason) : `Unknown operand source: "${operand.source}"`);
 }
 
 export function topologicalSort(nodes, edges) {
@@ -293,6 +296,11 @@ export class ExecutionEngine extends EventEmitter {
         nodeStatus.set(node.id, 'failed');
         outgoing.forEach((edge) => activeEdges.set(edge.id, false));
 
+        if (!err.message?.startsWith('Node "')) {
+          err.message = formatNodeError(node, err.message);
+        }
+        err.nodeId = node.id;
+
         const failedEvent = {
           type: 'node',
           runId: this.runId,
@@ -341,13 +349,16 @@ export class ExecutionEngine extends EventEmitter {
       }
 
       case 'math': {
-        const leftVal = resolveOperand(data.left, this.context);
-        const rightVal = resolveOperand(data.right, this.context);
+        const leftVal = resolveOperand(data.left, this.context, node);
+        const rightVal = resolveOperand(data.right, this.context, node);
 
         if (typeof leftVal !== 'number' || typeof rightVal !== 'number') {
-          throw new ExecutionError(
-            `Math node "${node.id}" operands must evaluate to numbers (received left: ${typeof leftVal}, right: ${typeof rightVal})`
+          const err = new ExecutionError(
+            formatNodeError(node, `operands must evaluate to numbers (received left: ${typeof leftVal}, right: ${typeof rightVal})`),
+            [{ nodeId: node.id }]
           );
+          err.nodeId = node.id;
+          throw err;
         }
 
         inputs = { left: leftVal, right: rightVal, op: data.op };
@@ -364,12 +375,17 @@ export class ExecutionEngine extends EventEmitter {
             break;
           case 'divide':
             if (rightVal === 0) {
-              throw new ExecutionError(`Division by zero in math node "${node.id}"`);
+              const err = new ExecutionError(formatNodeError(node, 'cannot divide by zero'), [{ nodeId: node.id }]);
+              err.nodeId = node.id;
+              throw err;
             }
             result = leftVal / rightVal;
             break;
-          default:
-            throw new ExecutionError(`Unknown math operation "${data.op}" in node "${node.id}"`);
+          default: {
+            const err = new ExecutionError(formatNodeError(node, `unknown math operation "${data.op}"`), [{ nodeId: node.id }]);
+            err.nodeId = node.id;
+            throw err;
+          }
         }
 
         this.context[data.outputKey] = result;
@@ -378,8 +394,8 @@ export class ExecutionEngine extends EventEmitter {
       }
 
       case 'condition': {
-        const leftVal = resolveOperand(data.left, this.context);
-        const rightVal = resolveOperand(data.right, this.context);
+        const leftVal = resolveOperand(data.left, this.context, node);
+        const rightVal = resolveOperand(data.right, this.context, node);
 
         inputs = { left: leftVal, right: rightVal, op: data.op };
 
@@ -402,8 +418,11 @@ export class ExecutionEngine extends EventEmitter {
           case 'neq':
             conditionResult = leftVal !== rightVal;
             break;
-          default:
-            throw new ExecutionError(`Unknown condition operation "${data.op}" in node "${node.id}"`);
+          default: {
+            const err = new ExecutionError(formatNodeError(node, `unknown condition operation "${data.op}"`), [{ nodeId: node.id }]);
+            err.nodeId = node.id;
+            throw err;
+          }
         }
 
         outputs = { conditionResult };
@@ -411,7 +430,7 @@ export class ExecutionEngine extends EventEmitter {
       }
 
       case 'transform': {
-        const inputVal = resolveOperand(data.input, this.context);
+        const inputVal = resolveOperand(data.input, this.context, node);
         inputs = { input: inputVal, operation: data.operation };
         if (data.param !== undefined) {
           inputs.param = data.param;
@@ -421,14 +440,24 @@ export class ExecutionEngine extends EventEmitter {
         switch (data.operation) {
           case 'add': {
             if (typeof inputVal !== 'number' || typeof data.param !== 'number') {
-              throw new ExecutionError(`Transform add operation requires numeric input and param in node "${node.id}"`);
+              const err = new ExecutionError(
+                formatNodeError(node, 'transform add operation requires numeric input and param'),
+                [{ nodeId: node.id }]
+              );
+              err.nodeId = node.id;
+              throw err;
             }
             result = inputVal + data.param;
             break;
           }
           case 'multiply': {
             if (typeof inputVal !== 'number' || typeof data.param !== 'number') {
-              throw new ExecutionError(`Transform multiply operation requires numeric input and param in node "${node.id}"`);
+              const err = new ExecutionError(
+                formatNodeError(node, 'transform multiply operation requires numeric input and param'),
+                [{ nodeId: node.id }]
+              );
+              err.nodeId = node.id;
+              throw err;
             }
             result = inputVal * data.param;
             break;
@@ -436,7 +465,12 @@ export class ExecutionEngine extends EventEmitter {
           case 'round': {
             const num = Number(inputVal);
             if (isNaN(num)) {
-              throw new ExecutionError(`Transform round operation requires numeric input in node "${node.id}"`);
+              const err = new ExecutionError(
+                formatNodeError(node, 'transform round operation requires numeric input'),
+                [{ nodeId: node.id }]
+              );
+              err.nodeId = node.id;
+              throw err;
             }
             result = Math.round(num);
             break;
@@ -445,8 +479,11 @@ export class ExecutionEngine extends EventEmitter {
             result = String(inputVal);
             break;
           }
-          default:
-            throw new ExecutionError(`Unknown transform operation "${data.operation}" in node "${node.id}"`);
+          default: {
+            const err = new ExecutionError(formatNodeError(node, `unknown transform operation "${data.operation}"`), [{ nodeId: node.id }]);
+            err.nodeId = node.id;
+            throw err;
+          }
         }
 
         this.context[data.outputKey] = result;
@@ -457,7 +494,9 @@ export class ExecutionEngine extends EventEmitter {
       case 'delay': {
         const ms = Number(data.ms) || 0;
         if (ms < 0 || ms > 5000) {
-          throw new ExecutionError(`Delay node "${node.id}" ms must be between 0 and 5000`);
+          const err = new ExecutionError(formatNodeError(node, 'delay ms must be between 0 and 5000'), [{ nodeId: node.id }]);
+          err.nodeId = node.id;
+          throw err;
         }
         inputs = { ms };
         outputs = {};
@@ -473,7 +512,7 @@ export class ExecutionEngine extends EventEmitter {
         outputs = {};
 
         for (const field of fields) {
-          const val = resolveOperand(field.value, this.context);
+          const val = resolveOperand(field.value, this.context, node);
           inputs[field.key] = val;
           outputs[field.key] = val;
           this.finalOutput[field.key] = val;
@@ -481,8 +520,11 @@ export class ExecutionEngine extends EventEmitter {
         break;
       }
 
-      default:
-        throw new ExecutionError(`Unsupported node type "${node.type}" in node "${node.id}"`);
+      default: {
+        const err = new ExecutionError(formatNodeError(node, `unsupported node type "${node.type}"`), [{ nodeId: node.id }]);
+        err.nodeId = node.id;
+        throw err;
+      }
     }
 
     return { inputs, outputs, conditionResult };

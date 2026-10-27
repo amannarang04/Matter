@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ValidationError } from './errors.js';
+import { ValidationError, formatNodeError, getNodeLabel } from './errors.js';
 
 const IDENTIFIER_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
@@ -153,11 +153,13 @@ export function validateWorkflowDefinition(workflow) {
     const rawNode = nodes[i];
     const nodeRes = nodeSchema.safeParse(rawNode);
     if (!nodeRes.success) {
+      const nodeLabel = getNodeLabel(rawNode);
+      const nodeType = rawNode?.type || 'unknown';
       nodeRes.error.issues.forEach((issue) => {
         details.push({
           nodeId: rawNode?.id || `node[${i}]`,
           field: issue.path.join('.'),
-          message: issue.message,
+          message: `Node "${nodeLabel}" (${nodeType}): ${issue.message}`,
         });
       });
       continue;
@@ -168,7 +170,7 @@ export function validateWorkflowDefinition(workflow) {
       details.push({
         nodeId: node.id,
         field: 'id',
-        message: `Duplicate node ID: ${node.id}`,
+        message: formatNodeError(node, `duplicate node ID "${node.id}"`),
       });
     }
     nodeMap.set(node.id, node);
@@ -181,10 +183,16 @@ export function validateWorkflowDefinition(workflow) {
         if (dataRes.success && dataRes.data.values) {
           for (const key of Object.keys(dataRes.data.values)) {
             if (seenOutputKeys.has(key)) {
+              const prevNodeId = seenOutputKeys.get(key);
+              const prevNode = nodeMap.get(prevNodeId);
+              const prevLabel = getNodeLabel(prevNode);
               details.push({
                 nodeId: node.id,
                 field: `data.values.${key}`,
-                message: `outputKey / context key "${key}" is already defined by node ${seenOutputKeys.get(key)}`,
+                message: formatNodeError(
+                  node,
+                  `outputKey / context key "${key}" is already defined by node "${prevLabel}"`
+                ),
               });
             } else {
               seenOutputKeys.set(key, node.id);
@@ -197,10 +205,16 @@ export function validateWorkflowDefinition(workflow) {
         if (dataRes.success) {
           const key = dataRes.data.outputKey;
           if (seenOutputKeys.has(key)) {
+            const prevNodeId = seenOutputKeys.get(key);
+            const prevNode = nodeMap.get(prevNodeId);
+            const prevLabel = getNodeLabel(prevNode);
             details.push({
               nodeId: node.id,
               field: 'data.outputKey',
-              message: `outputKey "${key}" is already defined by node ${seenOutputKeys.get(key)}`,
+              message: formatNodeError(
+                node,
+                `outputKey "${key}" is already defined by node "${prevLabel}"`
+              ),
             });
           } else {
             seenOutputKeys.set(key, node.id);
@@ -215,10 +229,16 @@ export function validateWorkflowDefinition(workflow) {
         if (dataRes.success) {
           const key = dataRes.data.outputKey;
           if (seenOutputKeys.has(key)) {
+            const prevNodeId = seenOutputKeys.get(key);
+            const prevNode = nodeMap.get(prevNodeId);
+            const prevLabel = getNodeLabel(prevNode);
             details.push({
               nodeId: node.id,
               field: 'data.outputKey',
-              message: `outputKey "${key}" is already defined by node ${seenOutputKeys.get(key)}`,
+              message: formatNodeError(
+                node,
+                `outputKey "${key}" is already defined by node "${prevLabel}"`
+              ),
             });
           } else {
             seenOutputKeys.set(key, node.id);
@@ -235,7 +255,7 @@ export function validateWorkflowDefinition(workflow) {
         details.push({
           nodeId: node.id,
           field: 'type',
-          message: `Unknown node type: ${node.type}`,
+          message: formatNodeError(node, `unknown node type "${node.type}"`),
         });
         break;
     }
@@ -245,7 +265,7 @@ export function validateWorkflowDefinition(workflow) {
         details.push({
           nodeId: node.id,
           field: `data.${issue.path.join('.')}`,
-          message: issue.message,
+          message: formatNodeError(node, issue.message),
         });
       });
     }
@@ -300,15 +320,20 @@ export function validateWorkflowDefinition(workflow) {
       if (edge.sourceHandle !== 'true' && edge.sourceHandle !== 'false') {
         details.push({
           edgeId: edge.id,
+          nodeId: sourceNode.id,
           field: 'sourceHandle',
-          message: `Outgoing edge from condition node "${edge.source}" must have sourceHandle set to "true" or "false"`,
+          message: formatNodeError(
+            sourceNode,
+            'outgoing edge must have sourceHandle set to "true" or "false"'
+          ),
         });
       }
     }
   }
 
   if (details.length > 0) {
-    throw new ValidationError('Workflow validation failed', details);
+    const summaryMessage = details.length === 1 ? details[0].message : 'Workflow validation failed';
+    throw new ValidationError(summaryMessage, details);
   }
 
   // Check DAG / Cycle detection

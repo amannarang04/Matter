@@ -25,3 +25,16 @@ export class ExecutionError extends AppError {
     super(message, 500, 'EXECUTION_ERROR', details);
   }
 }
+
+export function getNodeLabel(node) {
+  if (node?.data?.label && typeof node.data.label === 'string' && node.data.label.trim()) {
+    return node.data.label.trim();
+  }
+  return (node?.id) ? String(node.id) : 'unknown';
+}
+
+export function formatNodeError(node, message) {
+  const label = getNodeLabel(node);
+  const type = node?.type || 'unknown';
+  return `Node "${label}" (${type}): ${message}`;
+}

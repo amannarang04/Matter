@@ -209,7 +209,7 @@ describe('Workflow Execution Engine & Validator', () => {
     expect(() => validateWorkflowDefinition(duplicateKeyWorkflow)).toThrow(ValidationError);
   });
 
-  it('fails math node gracefully on division by zero with a descriptive error', async () => {
+  it('fails math node gracefully on division by zero with a descriptive error mentioning node label', async () => {
     const divZeroWorkflow = {
       nodes: [
         { id: 'n1', type: 'input', data: { values: { num: 100 } } },
@@ -232,15 +232,46 @@ describe('Workflow Execution Engine & Validator', () => {
     const result = await engine.run();
 
     expect(result.status).toBe('failed');
-    expect(result.errorSummary).toBe('Division by zero in math node "n2"');
+    expect(result.errorSummary).toBe('Node "Divide By Zero" (math): cannot divide by zero');
 
     const failedExecution = engine.nodeExecutions.find((ne) => ne.nodeId === 'n2');
     expect(failedExecution).toBeDefined();
     expect(failedExecution.status).toBe('failed');
-    expect(failedExecution.error).toContain('Division by zero in math node "n2"');
+    expect(failedExecution.error).toBe('Node "Divide By Zero" (math): cannot divide by zero');
+    expect(failedExecution.nodeId).toBe('n2');
   });
 
-  it('fails math node with clear error when operands are non-numeric', async () => {
+  it('falls back to node id in error message when node label is empty or missing', async () => {
+    const divZeroNoLabelWorkflow = {
+      nodes: [
+        { id: 'n1', type: 'input', data: { values: { num: 100 } } },
+        {
+          id: 'n2',
+          type: 'math',
+          data: {
+            label: '   ',
+            left: { source: 'ref', key: 'num' },
+            op: 'divide',
+            right: { source: 'literal', value: 0 },
+            outputKey: 'res',
+          },
+        },
+      ],
+      edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+    };
+
+    const engine = new ExecutionEngine(divZeroNoLabelWorkflow);
+    const result = await engine.run();
+
+    expect(result.status).toBe('failed');
+    expect(result.errorSummary).toBe('Node "n2" (math): cannot divide by zero');
+
+    const failedExecution = engine.nodeExecutions.find((ne) => ne.nodeId === 'n2');
+    expect(failedExecution.error).toBe('Node "n2" (math): cannot divide by zero');
+    expect(failedExecution.nodeId).toBe('n2');
+  });
+
+  it('fails math node with clear error when operands are non-numeric mentioning label', async () => {
     const nonNumericWorkflow = {
       nodes: [
         { id: 'n1', type: 'input', data: { values: { str: 'abc' } } },
@@ -263,12 +294,12 @@ describe('Workflow Execution Engine & Validator', () => {
     const result = await engine.run();
 
     expect(result.status).toBe('failed');
-    expect(result.errorSummary).toContain('operands must evaluate to numbers');
+    expect(result.errorSummary).toBe('Node "Invalid Math" (math): operands must evaluate to numbers (received left: string, right: number)');
 
     const failedExecution = engine.nodeExecutions.find((ne) => ne.nodeId === 'n2');
     expect(failedExecution).toBeDefined();
     expect(failedExecution.status).toBe('failed');
-    expect(failedExecution.error).toContain('operands must evaluate to numbers (received left: string, right: number)');
+    expect(failedExecution.error).toBe('Node "Invalid Math" (math): operands must evaluate to numbers (received left: string, right: number)');
   });
 
   it('fails transform node with clear error when input is not numeric for round or add', async () => {
@@ -293,11 +324,65 @@ describe('Workflow Execution Engine & Validator', () => {
     const result = await engine.run();
 
     expect(result.status).toBe('failed');
-    expect(result.errorSummary).toContain('Transform round operation requires numeric input');
+    expect(result.errorSummary).toBe('Node "Bad Round" (transform): transform round operation requires numeric input');
 
     const failedExecution = engine.nodeExecutions.find((ne) => ne.nodeId === 'n2');
     expect(failedExecution).toBeDefined();
     expect(failedExecution.status).toBe('failed');
-    expect(failedExecution.error).toContain('requires numeric input in node "n2"');
+    expect(failedExecution.error).toBe('Node "Bad Round" (transform): transform round operation requires numeric input');
+  });
+
+  it('includes node label in validation error messages and falls back to id when label is empty', () => {
+    const workflowWithLabels = {
+      nodes: [
+        { id: 'inp-1', type: 'input', data: { label: 'Initial Inputs', values: { x: 1 } } },
+        {
+          id: 'trans-1',
+          type: 'transform',
+          data: {
+            label: 'Add Bonus',
+            input: { source: 'ref', key: 'x' },
+            operation: 'add',
+            outputKey: 'bonus',
+            // param is missing, which is required for add
+          },
+        },
+        {
+          id: 'cond-1',
+          type: 'condition',
+          data: {
+            // no label
+            left: { source: 'ref', key: 'bonus' },
+            op: 'gt',
+            right: { source: 'literal', value: 5 },
+          },
+        },
+      ],
+      edges: [
+        { id: 'e1', source: 'inp-1', target: 'trans-1' },
+        { id: 'e2', source: 'trans-1', target: 'cond-1' },
+        // Condition outgoing edge missing sourceHandle ('true' or 'false')
+        { id: 'e3', source: 'cond-1', target: 'trans-1' },
+      ],
+    };
+
+    try {
+      validateWorkflowDefinition(workflowWithLabels);
+      expect.fail('Should have thrown ValidationError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ValidationError);
+      expect(err.details).toBeDefined();
+
+      const transError = err.details.find((d) => d.nodeId === 'trans-1');
+      expect(transError).toBeDefined();
+      expect(transError.message).toContain('Node "Add Bonus" (transform):');
+      expect(transError.nodeId).toBe('trans-1');
+
+      const condError = err.details.find((d) => d.nodeId === 'cond-1');
+      expect(condError).toBeDefined();
+      expect(condError.message).toContain('Node "cond-1" (condition):');
+      expect(condError.nodeId).toBe('cond-1');
+    }
   });
 });
+
